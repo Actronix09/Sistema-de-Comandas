@@ -32,7 +32,6 @@ Toda la navegación es con las flechas, enter y esc.
     Verifica que el teléfono sea valido teniendo solo numero y un mínimo de ocho caracteres.
 
 **void iniciar_sesion()**
-
     Esta es la interfaz para iniciar sesión donde se pide el usuario y la contraseña.
 
 **void crear_usuario**
