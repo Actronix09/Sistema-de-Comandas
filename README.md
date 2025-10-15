@@ -1,19 +1,15 @@
 # Sistema de autentificación
-```
+
 Este sistema recibe y maneja los usuarios de un sistema de comandas, maneja la información:
-```
 - Usuario
 - Contraseña
 - Correo
 - Numero teléfono
 - Tipo usuarios (Cocina o Mesero)
 
-```
 Toda la navegación es con las flechas, enter y esc.
-```
 
 ## Funciones
-```
 **void encriptar(entrada, salida)**
     Recibe una cadena a encriptar y otra vacía para guardar la salida, usa el método de encriptado EVP.
 
@@ -47,7 +43,6 @@ Toda la navegación es con las flechas, enter y esc.
 
 **int main()**
     Se cargan los usuarios, carga y descarga ncurses ademas maneja parte del menu principal.
-```
 
 ### Requisitos
 - **GCC o similar**
