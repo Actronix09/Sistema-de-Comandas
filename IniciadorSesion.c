@@ -176,7 +176,7 @@ int check_mail(char mail[MAX_CHAIN_SIZE])
     return (arroba == 1 && punto > 0) ? 0 : 1; // Verificar correo
 }
 
-// Función para verificar numero de telfono
+// Función para verificar numero de telefono
 int check_telf(char telf[MAX_CHAIN_SIZE])
 {   
     int longitud = 0;
@@ -213,12 +213,12 @@ void iniciar_sesion()
     // Leer usuario
     leer_input(6, 14, user, MAX_CHAIN_SIZE, 0);
 
-    if(strlen(user) == 0) return; // Usario canceló
+    if(strlen(user) == 0) return; // Usuario canceló
 
     // Leer contraseña
     leer_input(8, 18, pass, MAX_CHAIN_SIZE, 1);
 
-    if(strlen(pass) == 0) return; // Usario canceló
+    if(strlen(pass) == 0) return; // Usuario canceló
 
     // Encriptar contraseña
     encriptar(pass, pass_encrip);
@@ -406,6 +406,118 @@ void crear_usuario()
     getch();
 }
 
+void recuperar_contrasena()
+{
+    char user[MAX_CHAIN_SIZE];
+    char pass[MAX_CHAIN_SIZE];
+    char pass_encrip[33];
+    int encontrado = -1;
+    int val;
+
+    clear();
+    border('|', '|', '-', '-', '+', '+', '+', '+');
+
+    attron(COLOR_PAIR(1));
+    mvprintw(2, (COLS-23)/2, "Recuperar Contrasena");
+    attroff(COLOR_PAIR(1));
+    mvprintw(3, (COLS-23)/2, "====================");
+
+    mvprintw(6, 5, "Ingrese su usuario:");
+
+    mvprintw(LINES-3, 2, "Presione ESC para cancelar");
+    refresh();
+
+    // Leer usuario
+    leer_input(6, 25, user, MAX_CHAIN_SIZE, 0);
+
+    if(strlen(user) == 0) return; // Usuario canceló
+
+    // Buscar usuario
+    for(int i = 0; i < total_usuarios; i++)
+    {
+        if(strcmp(usuarios[i].user, user) == 0)
+        {
+            encontrado = i;
+            break;
+        }
+    }
+
+    if(encontrado == -1)
+    {
+        clear();
+        border('|', '|', '-', '-', '+', '+', '+', '+');
+
+        attron(COLOR_PAIR(3));
+        mvprintw(LINES/2, (COLS-25)/2, "Usuario no encontrado");
+        attroff(COLOR_PAIR(3));
+
+        mvprintw(LINES-3, 2, "Presione cualquier tecla para continuar...");
+        refresh();
+        getch();
+        return;
+    }
+
+    // Mostrar información del usuario
+    clear();
+    border('|', '|', '-', '-', '+', '+', '+', '+');
+
+    attron(COLOR_PAIR(1));
+    mvprintw(2, (COLS-23)/2, "Recuperar Contrasena");
+    attroff(COLOR_PAIR(1));
+    mvprintw(3, (COLS-23)/2, "====================");
+
+    attron(COLOR_PAIR(2));
+    mvprintw(6, 5, "Usuario encontrado!");
+    attroff(COLOR_PAIR(2));
+
+    mvprintw(8, 5, "Nombre: %s", usuarios[encontrado].name);
+    mvprintw(10, 5, "Nueva contrasena:");
+
+    mvprintw(LINES-3, 2, "Presione ESC para cancelar");
+    refresh();
+
+    // Leer nueva contraseña
+    leer_input(10, 24, pass, MAX_CHAIN_SIZE, 1);
+
+    if(strlen(pass) == 0) return; // Usuario canceló
+
+    // Validar contraseña
+    val = check_pass(pass);
+    if(val != 0)
+    {
+        clear();
+        border('|', '|', '-', '-', '+', '+', '+', '+');
+        attron(COLOR_PAIR(3));
+        mvprintw(LINES/2, (COLS-30)/2, "La contrasena es invalida");
+        mvprintw(LINES/2 + 1, (COLS-90)/2, "Debe tener: 1 mayuscula, 1 minuscula, 1 numero, 2 simbolos(*/_-+.), min 8 caracteres");
+        attroff(COLOR_PAIR(3));
+        mvprintw(LINES-3, 2, "Presione cualquier tecla para continuar...");
+        refresh();
+        getch();
+        return;
+    }
+
+    // Encriptar nueva contraseña
+    encriptar(pass, pass_encrip);
+
+    // Actualizar contraseña
+    strncpy(usuarios[encontrado].pass, pass_encrip, 32);
+
+    // Guardar cambios
+    guardar_usuarios();
+
+    clear();
+    border('|', '|', '-', '-', '+', '+', '+', '+');
+
+    attron(COLOR_PAIR(2));
+    mvprintw(LINES/2, (COLS-35)/2, "Contrasena actualizada exitosamente!");
+    attroff(COLOR_PAIR(2));
+
+    mvprintw(LINES-3, 2, "Presione cualquier tecla para continuar...");
+    refresh();
+    getch();
+}
+
 int main_menu()
 {
     int opcion = 0;
@@ -413,9 +525,10 @@ int main_menu()
     char *opciones[] = {
         "Iniciar Sesion",
         "Crear Usuario",
+        "Recuperar Contrasena",
         "Salir"
     };
-    int num_opciones = 3;
+    int num_opciones = 4;
 
     clear();
 
@@ -456,7 +569,7 @@ int main_menu()
             case 10: // ENTER
                 return opcion;
             case 27: // ESC
-                return 2; // Salir
+                return 3; // Salir
             default:
                 break;
         }
@@ -499,7 +612,10 @@ int main()
             case 1: // Crear Usuario
                 crear_usuario();
                 break;
-            case 2: // Salir
+            case 2: // Recuperar Contraseña
+                recuperar_contrasena();
+                break;
+            case 3: // Salir
                 salir = 1;
                 break;
         }
