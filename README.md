@@ -48,3 +48,41 @@ Toda la navegación es con las flechas, enter y esc.
 
 ### Compilación
 - En terminal ejecutar `gcc IniciadorSesion.c -o IniciadorSesion -lncurses -lssl -lcrypto`
+
+# Comunicación entre Procesos Padre e Hijos
+
+Este sistema consiste de tres procesos un padre y tres hijos:
+- El padre crea una matrix de numeros.
+- Cada hijo va a sumar una fila de la matriz.
+- El padre imprimira los resultados de las sumas.
+
+## Funciones
+
+**typedef struct DatosCompartidos**
+    Esta estructura se usa los apuntadores a memoria compartida.
+
+**int Crear_semaforo**
+    Crea el semaforo usado para el manejo de la memoria copartida.
+
+**void down**
+    Cambia de estado la estructura del semaforo.
+
+**void up**
+    Cambia de estado la estructura del semaforo.
+
+### Requisitos
+- **GCC o similar**
+
+## Compilación y Ejeccución
+- En terminal ejecutar:
+```
+gcc ComunicacionPadreHijo.c -o ComunicacionPadreHijo
+```
+
+```
+touch archivo_mem archivo_sem
+```
+
+`./ComunicacionPadreHijo` ó `./ComunicacionPadreHijo.exe` 
+
+
