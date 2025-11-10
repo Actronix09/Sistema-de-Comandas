@@ -308,59 +308,54 @@ void crear_usuario()
     char pass[MAX_CHAIN_SIZE];
     char opcion_tipo;
     int val;
+    int completado = 0;
 
-    clear();
-    attron(COLOR_PAIR(COLOR_BORDE));
-    border('|', '|', '-', '-', '+', '+', '+', '+');
-    attroff(COLOR_PAIR(COLOR_BORDE));
-
-    attron(COLOR_PAIR(COLOR_TITULO) | A_BOLD);
-    mvprintw(2, (COLS-13)/2, "Crear Usuario");
-    attroff(COLOR_PAIR(COLOR_TITULO) | A_BOLD);
-    
-    attron(COLOR_PAIR(COLOR_TITULO));
-    mvprintw(3, (COLS-13)/2, "=============");
-    attroff(COLOR_PAIR(COLOR_TITULO));
-
-    attron(COLOR_PAIR(COLOR_INFO));
-    mvprintw(6, 5, "Nombre completo:");
-    mvprintw(8, 5, "Usuario:");
-    mvprintw(10, 5, "Contrasena:");
-    mvprintw(12, 5, "Email:");
-    mvprintw(14, 5, "Telefono:");
-    mvprintw(16, 5, "Tipo (C=Cocina, M=Mesero):");
-    attroff(COLOR_PAIR(COLOR_INFO));
-
-    attron(COLOR_PAIR(COLOR_MENU));
-    mvprintw(LINES-3, 2, "Presione ESC para cancelar");
-    attroff(COLOR_PAIR(COLOR_MENU));
-    refresh();
-
-    leer_input(6, 22, nuevo.name, MAX_CHAIN_SIZE, 0);
-    if(strlen(nuevo.name) == 0)
-    {
+    while(!completado) {
         clear();
         attron(COLOR_PAIR(COLOR_BORDE));
         border('|', '|', '-', '-', '+', '+', '+', '+');
         attroff(COLOR_PAIR(COLOR_BORDE));
+
+        attron(COLOR_PAIR(COLOR_TITULO) | A_BOLD);
+        mvprintw(2, (COLS-13)/2, "Crear Usuario");
+        attroff(COLOR_PAIR(COLOR_TITULO) | A_BOLD);
         
-        attron(COLOR_PAIR(COLOR_ERROR) | A_BOLD);
-        mvprintw(LINES/2, (COLS-30)/2, "El nombre no puede estar vacio");
-        attroff(COLOR_PAIR(COLOR_ERROR) | A_BOLD);
-        
+        attron(COLOR_PAIR(COLOR_TITULO));
+        mvprintw(3, (COLS-13)/2, "=============");
+        attroff(COLOR_PAIR(COLOR_TITULO));
+
+        attron(COLOR_PAIR(COLOR_INFO));
+        mvprintw(6, 5, "Nombre completo:");
+        mvprintw(8, 5, "Usuario:");
+        mvprintw(10, 5, "Contrasena:");
+        mvprintw(12, 5, "Email:");
+        mvprintw(14, 5, "Telefono:");
+        mvprintw(16, 5, "Tipo (C=Cocina, M=Mesero):");
+        attroff(COLOR_PAIR(COLOR_INFO));
+
         attron(COLOR_PAIR(COLOR_MENU));
-        mvprintw(LINES-3, 2, "Presione cualquier tecla para continuar...");
+        mvprintw(LINES-3, 2, "Presione ESC para cancelar");
         attroff(COLOR_PAIR(COLOR_MENU));
         refresh();
-        getch();
-        crear_usuario();
-    }
 
-    leer_input(8, 14, nuevo.user, MAX_CHAIN_SIZE, 0);
-    if(strlen(nuevo.user) == 0) return;
+        // Nombre
+        leer_input(6, 22, nuevo.name, MAX_CHAIN_SIZE, 0);
+        if(strlen(nuevo.name) == 0) return; // ESC presionado
+        
+        // Usuario
+        leer_input(8, 14, nuevo.user, MAX_CHAIN_SIZE, 0);
+        if(strlen(nuevo.user) == 0) return; // ESC presionado
 
-    for(int i = 0; i < total_usuarios; i++) {
-        if(strcmp(usuarios[i].user, nuevo.user) == 0) {
+        // Verificar si el usuario ya existe
+        int usuario_existe = 0;
+        for(int i = 0; i < total_usuarios; i++) {
+            if(strcmp(usuarios[i].user, nuevo.user) == 0) {
+                usuario_existe = 1;
+                break;
+            }
+        }
+
+        if(usuario_existe) {
             clear();
             attron(COLOR_PAIR(COLOR_BORDE));
             border('|', '|', '-', '-', '+', '+', '+', '+');
@@ -375,100 +370,110 @@ void crear_usuario()
             attroff(COLOR_PAIR(COLOR_MENU));
             refresh();
             getch();
-            crear_usuario();
+            continue; // Volver a empezar
         }
+
+        // Contraseña
+        leer_input(10, 17, pass, MAX_CHAIN_SIZE, 1);
+        if(strlen(pass) == 0) return; // ESC presionado
+        
+        val = check_pass(pass);
+        if(val != 0) {
+            clear();
+            attron(COLOR_PAIR(COLOR_BORDE));
+            border('|', '|', '-', '-', '+', '+', '+', '+');
+            attroff(COLOR_PAIR(COLOR_BORDE));
+            
+            attron(COLOR_PAIR(COLOR_ERROR) | A_BOLD);
+            mvprintw(LINES/2, (COLS-30)/2, "La contrasena es invalida");
+            attroff(COLOR_PAIR(COLOR_ERROR) | A_BOLD);
+            
+            attron(COLOR_PAIR(COLOR_ERROR));
+            mvprintw(LINES/2 + 1, (COLS-90)/2, "Debe tener: 1 mayuscula, 1 minuscula, 1 numero, 2 simbolos(*/_-+.), min 8 caracteres");
+            attroff(COLOR_PAIR(COLOR_ERROR));
+            
+            attron(COLOR_PAIR(COLOR_MENU));
+            mvprintw(LINES-3, 2, "Presione cualquier tecla para continuar...");
+            attroff(COLOR_PAIR(COLOR_MENU));
+            refresh();
+            getch();
+            continue; // Volver a empezar
+        }
+        
+        // Email
+        leer_input(12, 12, nuevo.mail, MAX_CHAIN_SIZE, 0);
+        if(strlen(nuevo.mail) == 0) return; // ESC presionado
+        
+        val = check_mail(nuevo.mail);
+        if(val != 0) {
+            clear();
+            attron(COLOR_PAIR(COLOR_BORDE));
+            border('|', '|', '-', '-', '+', '+', '+', '+');
+            attroff(COLOR_PAIR(COLOR_BORDE));
+            
+            attron(COLOR_PAIR(COLOR_ERROR) | A_BOLD);
+            mvprintw(LINES/2, (COLS-30)/2, "El correo es invalido");
+            attroff(COLOR_PAIR(COLOR_ERROR) | A_BOLD);
+            
+            attron(COLOR_PAIR(COLOR_MENU));
+            mvprintw(LINES-3, 2, "Presione cualquier tecla para continuar...");
+            attroff(COLOR_PAIR(COLOR_MENU));
+            refresh();
+            getch();
+            continue; // Volver a empezar
+        }
+        
+        // Teléfono
+        leer_input(14, 15, nuevo.telf, MAX_CHAIN_SIZE, 0);
+        if(strlen(nuevo.telf) == 0) return; // ESC presionado
+        
+        val = check_telf(nuevo.telf);
+        if(val != 0) {
+            clear();
+            attron(COLOR_PAIR(COLOR_BORDE));
+            border('|', '|', '-', '-', '+', '+', '+', '+');
+            attroff(COLOR_PAIR(COLOR_BORDE));
+            
+            attron(COLOR_PAIR(COLOR_ERROR) | A_BOLD);
+            mvprintw(LINES/2, (COLS-30)/2, "El telefono es invalido");
+            attroff(COLOR_PAIR(COLOR_ERROR) | A_BOLD);
+            
+            attron(COLOR_PAIR(COLOR_ERROR));
+            mvprintw(LINES/2 + 1, 5, "Solo numeros, minimo 8 digitos");
+            attroff(COLOR_PAIR(COLOR_ERROR));
+            
+            attron(COLOR_PAIR(COLOR_MENU));
+            mvprintw(LINES-3, 2, "Presione cualquier tecla para continuar...");
+            attroff(COLOR_PAIR(COLOR_MENU));
+            refresh();
+            getch();
+            continue; // Volver a empezar
+        }
+
+        // Tipo de usuario
+        move(16, 32);
+        curs_set(1);
+        do {
+            opcion_tipo = getch();
+            opcion_tipo = toupper(opcion_tipo);
+        } while(opcion_tipo != 'C' && opcion_tipo != 'M' && opcion_tipo != 27);
+        curs_set(0);
+
+        if(opcion_tipo == 27) return; // ESC presionado
+
+        nuevo.tipo = (opcion_tipo == 'C') ? 1 : 0;
+
+        // Si llegamos aquí, todo está correcto
+        completado = 1;
     }
 
-    leer_input(10, 17, pass, MAX_CHAIN_SIZE, 1);
-    val = check_pass(pass);
-    if(val != 0)
-    {
-        clear();
-        attron(COLOR_PAIR(COLOR_BORDE));
-        border('|', '|', '-', '-', '+', '+', '+', '+');
-        attroff(COLOR_PAIR(COLOR_BORDE));
-        
-        attron(COLOR_PAIR(COLOR_ERROR) | A_BOLD);
-        mvprintw(LINES/2, (COLS-30)/2, "La contrasena es invalida");
-        attroff(COLOR_PAIR(COLOR_ERROR) | A_BOLD);
-        
-        attron(COLOR_PAIR(COLOR_ERROR));
-        mvprintw(LINES/2 + 1, (COLS-90)/2, "Debe tener: 1 mayuscula, 1 minuscula, 1 numero, 2 simbolos(*/_-+.), min 8 caracteres");
-        attroff(COLOR_PAIR(COLOR_ERROR));
-        
-        attron(COLOR_PAIR(COLOR_MENU));
-        mvprintw(LINES-3, 2, "Presione cualquier tecla para continuar...");
-        attroff(COLOR_PAIR(COLOR_MENU));
-        refresh();
-        getch();
-        crear_usuario();
-    }
-    
-    leer_input(12, 12, nuevo.mail, MAX_CHAIN_SIZE, 0);
-    val = check_mail(nuevo.mail);
-    if(val != 0)
-    {
-        clear();
-        attron(COLOR_PAIR(COLOR_BORDE));
-        border('|', '|', '-', '-', '+', '+', '+', '+');
-        attroff(COLOR_PAIR(COLOR_BORDE));
-        
-        attron(COLOR_PAIR(COLOR_ERROR) | A_BOLD);
-        mvprintw(LINES/2, (COLS-30)/2, "El correo es invalido");
-        attroff(COLOR_PAIR(COLOR_ERROR) | A_BOLD);
-        
-        attron(COLOR_PAIR(COLOR_MENU));
-        mvprintw(LINES-3, 2, "Presione cualquier tecla para continuar...");
-        attroff(COLOR_PAIR(COLOR_MENU));
-        refresh();
-        getch();
-        crear_usuario();
-    }
-    
-    leer_input(14, 15, nuevo.telf, MAX_CHAIN_SIZE, 0);
-    val = check_telf(nuevo.telf);
-    if(val != 0)
-    {
-        clear();
-        attron(COLOR_PAIR(COLOR_BORDE));
-        border('|', '|', '-', '-', '+', '+', '+', '+');
-        attroff(COLOR_PAIR(COLOR_BORDE));
-        
-        attron(COLOR_PAIR(COLOR_ERROR) | A_BOLD);
-        mvprintw(LINES/2, (COLS-30)/2, "El telefono es invalido");
-        attroff(COLOR_PAIR(COLOR_ERROR) | A_BOLD);
-        
-        attron(COLOR_PAIR(COLOR_ERROR));
-        mvprintw(LINES/2 + 1, 5, "Solo numeros, minimo 8 digitos");
-        attroff(COLOR_PAIR(COLOR_ERROR));
-        
-        attron(COLOR_PAIR(COLOR_MENU));
-        mvprintw(LINES-3, 2, "Presione cualquier tecla para continuar...");
-        attroff(COLOR_PAIR(COLOR_MENU));
-        refresh();
-        getch();
-        crear_usuario();
-    }
-
-    move(16, 32);
-    curs_set(1);
-    do {
-        opcion_tipo = getch();
-        opcion_tipo = toupper(opcion_tipo);
-    } while(opcion_tipo != 'C' && opcion_tipo != 'M' && opcion_tipo != 27);
-    curs_set(0);
-
-    if(opcion_tipo == 27) return;
-
-    nuevo.tipo = (opcion_tipo == 'C') ? 1 : 0;
-
+    // Guardar el usuario
     encriptar(pass, nuevo.pass);
-
     usuarios[total_usuarios] = nuevo;
     total_usuarios++;
-
     guardar_usuarios();
 
+    // Mensaje de éxito
     clear();
     attron(COLOR_PAIR(COLOR_BORDE));
     border('|', '|', '-', '-', '+', '+', '+', '+');
