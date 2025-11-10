@@ -85,4 +85,25 @@ touch archivo_mem archivo_sem
 
 `./ComunicacionPadreHijo` ó `./ComunicacionPadreHijo.exe` 
 
+# Comunicación entre Procesos Padre e Hijos
+
+Este sistema consiste de cuatro hilos:
+- El principal crea una matrix de numeros.
+- Los secuandarios va a sumar una fila de la matriz.
+- El principal imprimira los resultados de las sumas.
+
+## Funciones
+
+
+
+### Requisitos
+- **GCC o similar**
+
+## Compilación y Ejecución
+- En terminal ejecutar:
+```
+gcc ComunicacionHilos.c -o ComunicacionHilos -lpthread
+```
+
+`./ComunicacionPadreHijo` ó `./ComunicacionPadreHijo.exe` 
 

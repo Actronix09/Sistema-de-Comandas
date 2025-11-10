@@ -57,6 +57,7 @@ dkms.conf
 # Extras
 IniciadorSesion
 ComunicacionPadreHijo
+ComunicacionHilos
 *.txt
 
 /.vscode
