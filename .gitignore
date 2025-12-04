@@ -58,6 +58,8 @@ dkms.conf
 IniciadorSesion
 ComunicacionPadreHijo
 ComunicacionHilos
+sistema_comandas
+usuarios
 *.txt
 
 /.vscode
