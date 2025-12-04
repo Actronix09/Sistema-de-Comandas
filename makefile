@@ -4,13 +4,13 @@ CC = gcc
 CFLAGS = -Wall -Wextra -g
 LIBS = -lncurses -lssl -lcrypto
 
-# Archivos objeto
-OBJS = main.o ui.o usuario.o sesion.o
 
-# Ejecutable
+OBJS = main.o ui.o usuario.o sesion.o mesero.o
+
+
 TARGET = sistema_comandas
 
-# Regla principal
+
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
@@ -28,14 +28,18 @@ usuario.o: usuario.c usuario.h
 sesion.o: sesion.c sesion.h usuario.h ui.h
 	$(CC) $(CFLAGS) -c sesion.c
 
-# Limpiar archivos generados
+
+mesero.o: mesero.c mesero.h usuario.h ui.h
+	$(CC) $(CFLAGS) -c mesero.c
+
+
 clean:
 	rm -f $(OBJS) $(TARGET) usuarios
 
-# Reconstruir todo
+
 rebuild: clean all
 
-# Ejecutar el programa
+
 run: $(TARGET)
 	./$(TARGET)
 
