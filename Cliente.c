@@ -14,6 +14,7 @@
 
 #define PERMISOS 0644
 #define MAX_CLIENTES 10
+#define MAX_INTENTOS_CONEXION 30  // 30 intentos = 30 segundos máximo
 
 // Estructura de datos compartidos (igual que en el servidor)
 typedef struct {
@@ -48,30 +49,89 @@ void up(int semid) {
     semop(semid, op_v, 1);
 }
 
+// Verificar si el semáforo está disponible sin bloquearse
+int try_down(int semid) {
+    struct sembuf op_p[] = {{0, -1, IPC_NOWAIT}};
+    return semop(semid, op_p, 1);
+}
+
+// Esperar a que el servidor esté listo
+int esperar_servidor() {
+    key_t llave_sem_estado;
+    int semid_estado;
+    int intentos = 0;
+    
+    // Obtener la llave del semáforo de estado
+    llave_sem_estado = ftok("servidor_estado_sem", 'E');
+    if (llave_sem_estado == -1) {
+        return -1;
+    }
+    
+    printf("Buscando servidor");
+    fflush(stdout);
+    
+    // Intentar obtener el semáforo de estado
+    while (intentos < MAX_INTENTOS_CONEXION) {
+        semid_estado = semget(llave_sem_estado, 1, PERMISOS);
+        
+        if (semid_estado != -1) {
+            // El semáforo existe, intentar hacer down (esperar señal de listo)
+            if (try_down(semid_estado) == 0) {
+                // Éxito: el servidor está listo
+                up(semid_estado); // Devolver el semáforo para otros clientes
+                printf(" ✓\n");
+                printf("Servidor encontrado y listo!\n");
+                return 0;
+            }
+        }
+        
+        // El servidor no está listo, esperar y reintentar
+        printf(".");
+        fflush(stdout);
+        sleep(1);
+        intentos++;
+    }
+    
+    printf(" ✗\n");
+    printf("Timeout: El servidor no respondio en %d segundos\n", MAX_INTENTOS_CONEXION);
+    return -1;
+}
+
 // Conectar al servidor
 int conectar_servidor() {
     key_t llave_mem, llave_sem;
     int shmid;
     
+    // Primero esperar a que el servidor esté listo
+    if (esperar_servidor() != 0) {
+        return -1;
+    }
+    
+    printf("Conectando a memoria compartida...\n");
+    
     llave_mem = ftok("servidor_usuarios_mem", 'U');
     llave_sem = ftok("servidor_usuarios_sem", 'V');
     
     if (llave_mem == -1 || llave_sem == -1) {
+        printf("Error: No se pudieron crear las llaves\n");
         return -1;
     }
     
     shmid = shmget(llave_mem, sizeof(DatosCompartidos), PERMISOS);
     if (shmid == -1) {
+        printf("Error: No se pudo acceder a la memoria compartida\n");
         return -1;
     }
     
     datos_servidor = (DatosCompartidos *)shmat(shmid, 0, 0);
     if (datos_servidor == (void *)-1) {
+        printf("Error: No se pudo adjuntar la memoria compartida\n");
         return -1;
     }
     
     semid_servidor = semget(llave_sem, 1, PERMISOS);
     if (semid_servidor == -1) {
+        printf("Error: No se pudo acceder al semaforo\n");
         shmdt(datos_servidor);
         return -1;
     }
@@ -79,11 +139,14 @@ int conectar_servidor() {
     // Verificar servidor activo
     down(semid_servidor);
     if (datos_servidor->servidor_activo == 0) {
+        printf("Error: El servidor no esta activo\n");
         up(semid_servidor);
         shmdt(datos_servidor);
         return -1;
     }
     up(semid_servidor);
+    
+    printf("Buscando slot disponible...\n");
     
     // Buscar slot disponible
     down(semid_servidor);
@@ -101,10 +164,12 @@ int conectar_servidor() {
     up(semid_servidor);
     
     if (mi_slot == -1) {
+        printf("Error: No hay slots disponibles (servidor lleno)\n");
         shmdt(datos_servidor);
         return -1;
     }
     
+    printf("Slot asignado: %d\n", mi_slot);
     return 0;
 }
 
@@ -235,7 +300,7 @@ void crear_usuario() {
         ui_read_input(8, 14, user, MAX_CHAIN_SIZE, 0);
         if(strlen(user) == 0) return;
         
-        // Verificar si existe (local primero)
+        // Verificar si existe
         Peticion pet_ver;
         Respuesta resp_ver;
         memset(&pet_ver, 0, sizeof(Peticion));
@@ -510,7 +575,7 @@ int main() {
     // Inicializar UI
     ui_init();
     
-    // Conectar al servidor
+    // Conectar al servidor (con espera)
     if (conectar_servidor() != 0) {
         ui_show_error("No se pudo conectar al servidor.\nAsegurese de que este ejecutandose.");
         ui_cleanup();

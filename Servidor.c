@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <signal.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
@@ -40,6 +41,11 @@ typedef struct {
     int cliente_num;
 } ArgumentosHilo;
 
+// Variables globales para limpieza
+static int shmid_global = -1;
+static int semid_global = -1;
+static int semid_estado_global = -1;
+
 // Funciones de semáforo
 int Crea_semaforo(key_t llave, int valor_inicial) {
     int semid = semget(llave, 1, IPC_CREAT | PERMISOS);
@@ -56,6 +62,34 @@ void down(int semid) {
 void up(int semid) {
     struct sembuf op_v[] = {{0, +1, 0}};
     semop(semid, op_v, 1);
+}
+
+// Función para limpiar recursos al salir
+void limpiar_recursos(int signal) {
+    printf("\n\n========================================\n");
+    printf("Cerrando servidor...\n");
+    
+    if (semid_estado_global != -1) {
+        // Marcar servidor como inactivo
+        down(semid_estado_global);
+        up(semid_estado_global);
+        semctl(semid_estado_global, 0, IPC_RMID, 0);
+        printf("Semaforo de estado eliminado\n");
+    }
+    
+    if (shmid_global != -1) {
+        shmctl(shmid_global, IPC_RMID, 0);
+        printf("Memoria compartida eliminada\n");
+    }
+    
+    if (semid_global != -1) {
+        semctl(semid_global, 0, IPC_RMID, 0);
+        printf("Semaforo principal eliminado\n");
+    }
+    
+    printf("Servidor cerrado correctamente\n");
+    printf("========================================\n");
+    exit(0);
 }
 
 // Función para procesar peticiones
@@ -326,12 +360,16 @@ void *AtenderCliente(void *argumentos) {
 }
 
 int main() {
-    int shmid, semid;
+    int semid, semid_estado;
     DatosCompartidos *datos;
-    key_t llave_mem, llave_sem;
+    key_t llave_mem, llave_sem, llave_sem_estado;
     pthread_t hilos_clientes[MAX_CLIENTES];
     ArgumentosHilo args[MAX_CLIENTES];
     int cliente_contador = 0;
+    
+    // Configurar manejador de señales para limpieza
+    signal(SIGINT, limpiar_recursos);
+    signal(SIGTERM, limpiar_recursos);
     
     printf("\n");
     printf("+---------------------------------------+\n");
@@ -356,27 +394,41 @@ int main() {
     // Crear archivos de llave
     FILE *f1 = fopen("servidor_usuarios_mem", "a");
     FILE *f2 = fopen("servidor_usuarios_sem", "a");
+    FILE *f3 = fopen("servidor_estado_sem", "a");
     if (f1) fclose(f1);
     if (f2) fclose(f2);
+    if (f3) fclose(f3);
     
     llave_mem = ftok("servidor_usuarios_mem", 'U');
     llave_sem = ftok("servidor_usuarios_sem", 'V');
+    llave_sem_estado = ftok("servidor_estado_sem", 'E');
     
-    if (llave_mem == -1 || llave_sem == -1) {
+    if (llave_mem == -1 || llave_sem == -1 || llave_sem_estado == -1) {
         perror("Error al crear llaves");
         exit(-1);
     }
     
-    shmid = shmget(llave_mem, sizeof(DatosCompartidos), IPC_CREAT | PERMISOS);
-    if (shmid == -1) {
+    // Crear semáforo de estado (inicializado en 0 = servidor no listo)
+    semid_estado = Crea_semaforo(llave_sem_estado, 0);
+    if (semid_estado == -1) {
+        perror("Error al crear semáforo de estado");
+        exit(-1);
+    }
+    semid_estado_global = semid_estado;
+    printf("Semáforo de estado creado (ID: %d)\n", semid_estado);
+    
+    shmid_global = shmget(llave_mem, sizeof(DatosCompartidos), IPC_CREAT | PERMISOS);
+    if (shmid_global == -1) {
         perror("Error al crear memoria compartida");
+        semctl(semid_estado, 0, IPC_RMID, 0);
         exit(-1);
     }
     
-    datos = (DatosCompartidos *)shmat(shmid, 0, 0);
+    datos = (DatosCompartidos *)shmat(shmid_global, 0, 0);
     if (datos == (void *)-1) {
         perror("Error al adjuntar memoria compartida");
-        shmctl(shmid, IPC_RMID, 0);
+        shmctl(shmid_global, IPC_RMID, 0);
+        semctl(semid_estado, 0, IPC_RMID, 0);
         exit(-1);
     }
     
@@ -384,9 +436,11 @@ int main() {
     if (semid == -1) {
         perror("Error al crear semáforo");
         shmdt(datos);
-        shmctl(shmid, IPC_RMID, 0);
+        shmctl(shmid_global, IPC_RMID, 0);
+        semctl(semid_estado, 0, IPC_RMID, 0);
         exit(-1);
     }
+    semid_global = semid;
     
     down(semid);
     datos->servidor_activo = 1;
@@ -400,8 +454,12 @@ int main() {
     }
     up(semid);
     
-    printf("\nMemoria compartida creada (ID: %d)\n", shmid);
+    printf("Memoria compartida creada (ID: %d)\n", shmid_global);
     printf("Semáforo creado (ID: %d)\n", semid);
+    
+    // SEÑALIZAR QUE EL SERVIDOR ESTÁ LISTO (up en semáforo de estado)
+    up(semid_estado);
+    printf("\n*** SERVIDOR LISTO PARA ACEPTAR CONEXIONES ***\n");
     printf("\nEsperando clientes...\n");
     printf("(Presione Ctrl+C para detener)\n\n");
     
@@ -451,9 +509,8 @@ int main() {
         usleep(100000);
     }
     
-    shmdt(datos);
-    shmctl(shmid, IPC_RMID, 0);
-    semctl(semid, 0, IPC_RMID, 0);
+    // Limpieza (en caso de salida normal, aunque normalmente se usa Ctrl+C)
+    limpiar_recursos(0);
     
     return 0;
 }

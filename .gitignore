@@ -55,11 +55,12 @@ dkms.conf
 *.dwo
 
 # Extras
-IniciadorSesion
-ComunicacionPadreHijo
-ComunicacionHilos
-sistema_comandas
+Cliente
+*.o
+Servidor
+servidor_estado_sem
+servidor_usuarios_mem
+servidor_usuarios_sem
 usuarios
-*.txt
 
 /.vscode
