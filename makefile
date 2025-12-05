@@ -66,7 +66,7 @@ clean:
 
 # Limpiar todo incluyendo datos
 cleanall: clean
-	rm -f usuarios pedidos
+	rm -f usuarios pedidos *.log
 
 # Ejecutar servidor
 run-servidor: $(SERVIDOR)

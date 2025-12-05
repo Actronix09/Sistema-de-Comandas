@@ -55,12 +55,14 @@ dkms.conf
 *.dwo
 
 # Extras
-Cliente
+*.log
 *.o
+Cliente
 Servidor
 servidor_estado_sem
 servidor_usuarios_mem
 servidor_usuarios_sem
 usuarios
+pedidos
 
 /.vscode

@@ -172,8 +172,7 @@ void procesarPeticion(Peticion *pet, Respuesta *resp, int cliente_num) {
                 
                 // LOG: Usuario creado
                 char detalles[256];
-                snprintf(detalles, sizeof(detalles), "Nombre: %s, Tipo: %s, Email: %s", 
-                         pet->name, pet->tipo == 1 ? "Cocina" : "Mesero", pet->mail);
+                snprintf(detalles, sizeof(detalles), "Nombre: %s, Tipo: %s, Email: %s", pet->name, pet->tipo == 1 ? "Cocina" : "Mesero", pet->mail);
                 log_evento_auth(LOG_USUARIO_CREADO, pet->user, detalles, cliente_num);
             } else {
                 resp->codigo = RESP_ERROR;

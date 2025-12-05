@@ -14,9 +14,9 @@
 
 #define PERMISOS 0644
 #define MAX_CLIENTES 10
-#define MAX_INTENTOS_CONEXION 30  // 30 intentos = 30 segundos máximo
+#define MAX_INTENTOS_CONEXION 30
 
-// Estructura de datos compartidos (igual que en el servidor)
+// Estructura de datos compartidos
 typedef struct {
     int cliente_conectado;
     int peticion_lista;
@@ -33,7 +33,7 @@ typedef struct {
     DatosCliente clientes[MAX_CLIENTES];
 } DatosCompartidos;
 
-// Variables globales para comunicación con servidor (compartidas con interfaces)
+// Variables globales para comunicación con servidor
 DatosCompartidos *datos_servidor = NULL;
 int semid_servidor = -1;
 int mi_slot = -1;
