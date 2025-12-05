@@ -11,11 +11,12 @@ OBJ_USUARIO = usuario.o
 OBJ_PRODUCTOS = productos.o
 OBJ_PEDIDOS = pedidos.o
 OBJ_UI = ui.o
+OBJ_LOG = logger.o
 
 # Servidor
 SERVIDOR = Servidor
 SERVIDOR_SRC = Servidor.c
-SERVIDOR_OBJ = $(SERVIDOR_SRC:.c=.o)
+SERVIDOR_OBJ = $(SERVIDOR_SRC:.c=.o) logger.o
 
 # Cliente
 CLIENTE = Cliente
@@ -55,10 +56,13 @@ interfaz_mesero.o: interfaz_mesero.c interfaz_mesero.h
 interfaz_cocina.o: interfaz_cocina.c interfaz_cocina.h
 	$(CC) $(CFLAGS) -c interfaz_cocina.c
 
+logger.o: logger.c logger.h
+	$(CC) $(CFLAGS) -c logger.c
+
 # Limpiar archivos compilados
 clean:
 	rm -f *.o $(SERVIDOR) $(CLIENTE)
-	rm -f servidor_usuarios_mem servidor_usuarios_sem
+	rm -f servidor_usuarios_mem servidor_usuarios_sem servidor_estado_sem
 
 # Limpiar todo incluyendo datos
 cleanall: clean
@@ -81,4 +85,4 @@ help:
 	@echo "  make run-servidor - Compilar y ejecutar servidor"
 	@echo "  make run-cliente  - Compilar y ejecutar cliente"
 
-.PHONY: all clean cleanall run-servidor run-cliente help
+.PHONY: clean cleanall run-servidor run-cliente help

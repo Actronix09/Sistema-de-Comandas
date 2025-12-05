@@ -12,6 +12,7 @@
 #include "productos.h"
 #include "pedidos.h"
 #include "protocolo.h"
+#include "logger.h"
 
 #define PERMISOS 0644
 #define MAX_CLIENTES 10
@@ -45,6 +46,8 @@ typedef struct {
 static int shmid_global = -1;
 static int semid_global = -1;
 static int semid_estado_global = -1;
+static pthread_t hilo_log_auth;
+static pthread_t hilo_log_cocina;
 
 // Funciones de semáforo
 int Crea_semaforo(key_t llave, int valor_inicial) {
@@ -69,8 +72,15 @@ void limpiar_recursos(int signal) {
     printf("\n\n========================================\n");
     printf("Cerrando servidor...\n");
     
+    // Detener hilos de logging
+    logger_activo = 0;
+    printf("Esperando a que finalicen los hilos de logging...\n");
+    pthread_join(hilo_log_auth, NULL);
+    pthread_join(hilo_log_cocina, NULL);
+    
+    logger_cleanup();
+    
     if (semid_estado_global != -1) {
-        // Marcar servidor como inactivo
         down(semid_estado_global);
         up(semid_estado_global);
         semctl(semid_estado_global, 0, IPC_RMID, 0);
@@ -93,7 +103,7 @@ void limpiar_recursos(int signal) {
 }
 
 // Función para procesar peticiones
-void procesarPeticion(Peticion *pet, Respuesta *resp) {
+void procesarPeticion(Peticion *pet, Respuesta *resp, int cliente_num) {
     switch(pet->operacion) {
         case OP_LOGIN: {
             int index = usuario_autenticar(pet->user, pet->pass);
@@ -104,11 +114,19 @@ void procesarPeticion(Peticion *pet, Respuesta *resp) {
                 strncpy(resp->nombre, u->name, MAX_CHAIN_SIZE-1);
                 snprintf(resp->mensaje, TAM_MENSAJE, "Bienvenido %s", u->name);
                 printf("    > Login exitoso: %s (tipo: %s)\n", u->name, u->tipo == 1 ? "Cocina" : "Mesero");
+                
+                // LOG: Login exitoso
+                char detalles[256];
+                snprintf(detalles, sizeof(detalles), "Tipo: %s", u->tipo == 1 ? "Cocina" : "Mesero");
+                log_evento_auth(LOG_LOGIN_EXITOSO, pet->user, detalles, cliente_num);
             } else {
                 resp->codigo = RESP_CREDENCIALES_INVALIDAS;
                 resp->tipo_usuario = -1;
                 strcpy(resp->mensaje, "Usuario o contraseña incorrectos");
                 printf("    X Login fallido para: %s\n", pet->user);
+                
+                // LOG: Login fallido
+                log_evento_auth(LOG_LOGIN_FALLIDO, pet->user, "Credenciales incorrectas", cliente_num);
             }
             break;
         }
@@ -118,6 +136,9 @@ void procesarPeticion(Peticion *pet, Respuesta *resp) {
                 resp->codigo = RESP_USUARIO_EXISTE;
                 strcpy(resp->mensaje, "El usuario ya existe");
                 printf("    X Usuario ya existe: %s\n", pet->user);
+                
+                // LOG: Usuario ya existe
+                log_evento_auth(LOG_USUARIO_EXISTE, pet->user, "Intento de crear usuario duplicado", cliente_num);
                 break;
             }
             
@@ -148,6 +169,12 @@ void procesarPeticion(Peticion *pet, Respuesta *resp) {
                 resp->codigo = RESP_OK;
                 strcpy(resp->mensaje, "Usuario creado exitosamente");
                 printf("    > Usuario creado: %s (tipo: %s)\n", pet->user, pet->tipo == 1 ? "Cocina" : "Mesero");
+                
+                // LOG: Usuario creado
+                char detalles[256];
+                snprintf(detalles, sizeof(detalles), "Nombre: %s, Tipo: %s, Email: %s", 
+                         pet->name, pet->tipo == 1 ? "Cocina" : "Mesero", pet->mail);
+                log_evento_auth(LOG_USUARIO_CREADO, pet->user, detalles, cliente_num);
             } else {
                 resp->codigo = RESP_ERROR;
                 strcpy(resp->mensaje, "Error al crear usuario");
@@ -161,6 +188,9 @@ void procesarPeticion(Peticion *pet, Respuesta *resp) {
                 resp->codigo = RESP_USUARIO_NO_EXISTE;
                 strcpy(resp->mensaje, "Usuario no encontrado");
                 printf("    X Usuario no encontrado: %s\n", pet->user);
+                
+                // LOG: Recuperación fallida
+                log_evento_auth(LOG_PASSWORD_FALLIDA, pet->user, "Usuario no encontrado", cliente_num);
                 break;
             }
             
@@ -168,6 +198,9 @@ void procesarPeticion(Peticion *pet, Respuesta *resp) {
                 resp->codigo = RESP_VALIDACION_FALLIDA;
                 strcpy(resp->mensaje, "La nueva contraseña no cumple los requisitos");
                 printf("    X Nueva contraseña inválida para: %s\n", pet->user);
+                
+                // LOG: Recuperación fallida
+                log_evento_auth(LOG_PASSWORD_FALLIDA, pet->user, "Contraseña no cumple requisitos", cliente_num);
                 break;
             }
             
@@ -176,6 +209,9 @@ void procesarPeticion(Peticion *pet, Respuesta *resp) {
                 resp->codigo = RESP_OK;
                 strcpy(resp->mensaje, "Contraseña actualizada exitosamente");
                 printf("    > Contraseña actualizada: %s\n", pet->user);
+                
+                // LOG: Contraseña recuperada
+                log_evento_auth(LOG_PASSWORD_RECUPERADA, pet->user, "Contraseña actualizada exitosamente", cliente_num);
             } else {
                 resp->codigo = RESP_ERROR;
                 strcpy(resp->mensaje, "Error al actualizar contraseña");
@@ -223,10 +259,18 @@ void procesarPeticion(Peticion *pet, Respuesta *resp) {
                 resp->pedido_id_creado = id_pedido;
                 snprintf(resp->mensaje, TAM_MENSAJE, "Pedido #%d creado exitosamente", id_pedido);
                 printf("    > Pedido creado: #%d - Mesa: %s - Items: %d\n", id_pedido, pet->mesa, pet->num_items);
+                
+                // LOG: Pedido creado
+                char detalles[256];
+                snprintf(detalles, sizeof(detalles), "Creado por mesero");
+                log_evento_cocina(LOG_PEDIDO_CREADO, id_pedido, pet->mesa, pet->name, pet->num_items, detalles);
             } else {
                 resp->codigo = RESP_ERROR;
                 strcpy(resp->mensaje, "Error al crear pedido");
                 printf("    X Error al crear pedido\n");
+                
+                // LOG: Error en pedido
+                log_evento_cocina(LOG_PEDIDO_ERROR, 0, pet->mesa, pet->name, pet->num_items, "Error al crear pedido");
             }
             break;
         }
@@ -271,10 +315,33 @@ void procesarPeticion(Peticion *pet, Respuesta *resp) {
                 snprintf(resp->mensaje, TAM_MENSAJE, "Pedido #%d marcado como %s", 
                         pet->pedido_id, estados[pet->nuevo_estado]);
                 printf("    > Estado actualizado: Pedido #%d -> %s\n", pet->pedido_id, estados[pet->nuevo_estado]);
+                
+                // LOG: Cambio de estado
+                PEDIDO* p = pedidos_get_by_id(pet->pedido_id);
+                TipoEventoCocina tipo_log;
+                char detalles[256];
+                
+                if(pet->nuevo_estado == ESTADO_EN_PROGRESO) {
+                    tipo_log = LOG_PEDIDO_EN_PROGRESO;
+                    snprintf(detalles, sizeof(detalles), "Estado cambiado a EN PROGRESO");
+                } else if(pet->nuevo_estado == ESTADO_LISTO) {
+                    tipo_log = LOG_PEDIDO_COMPLETADO;
+                    snprintf(detalles, sizeof(detalles), "Estado cambiado a COMPLETADO");
+                } else {
+                    tipo_log = LOG_PEDIDO_CREADO;
+                    snprintf(detalles, sizeof(detalles), "Estado cambiado");
+                }
+                
+                if(p) {
+                    log_evento_cocina(tipo_log, pet->pedido_id, p->mesa, p->mesero, p->num_items, detalles);
+                }
             } else {
                 resp->codigo = RESP_ERROR;
                 strcpy(resp->mensaje, "Error al cambiar estado del pedido");
                 printf("    X Error al cambiar estado del pedido #%d\n", pet->pedido_id);
+                
+                // LOG: Error
+                log_evento_cocina(LOG_PEDIDO_ERROR, pet->pedido_id, "", "", 0, "Error al cambiar estado");
             }
             break;
         }
@@ -329,7 +396,7 @@ void *AtenderCliente(void *argumentos) {
             
             Respuesta resp;
             memset(&resp, 0, sizeof(Respuesta));
-            procesarPeticion(&pet, &resp);
+            procesarPeticion(&pet, &resp, args->cliente_num);
             
             down(args->semid);
             args->datos->clientes[mi_index].respuesta = resp;
@@ -354,6 +421,12 @@ void *AtenderCliente(void *argumentos) {
     args->datos->clientes[mi_index].hilo_asignado = 0;
     args->datos->num_clientes_activos--;
     printf("\nCliente #%d finalizado. Clientes activos: %d\n", args->cliente_num, args->datos->num_clientes_activos);
+    
+    // LOG: Cliente desconectado
+    char detalles[256];
+    snprintf(detalles, sizeof(detalles), "Desconexión normal");
+    log_evento_auth(LOG_CLIENTE_DESCONECTADO, "", detalles, args->cliente_num);
+    
     up(args->semid);
     
     pthread_exit(NULL);
@@ -391,6 +464,23 @@ int main() {
     pedidos_cargar();
     printf("Pedidos cargados: %d\n", pedidos_get_total());
     
+    // Inicializar sistema de logging
+    logger_init();
+    printf("Sistema de logging inicializado\n");
+    
+    // Crear hilos de logging
+    if (pthread_create(&hilo_log_auth, NULL, hilo_logger_auth, NULL) != 0) {
+        fprintf(stderr, "Error al crear hilo de logging de autenticación\n");
+        exit(-1);
+    }
+    pthread_detach(hilo_log_auth);
+    
+    if (pthread_create(&hilo_log_cocina, NULL, hilo_logger_cocina, NULL) != 0) {
+        fprintf(stderr, "Error al crear hilo de logging de cocina\n");
+        exit(-1);
+    }
+    pthread_detach(hilo_log_cocina);
+    
     // Crear archivos de llave
     FILE *f1 = fopen("servidor_usuarios_mem", "a");
     FILE *f2 = fopen("servidor_usuarios_sem", "a");
@@ -408,7 +498,7 @@ int main() {
         exit(-1);
     }
     
-    // Crear semáforo de estado (inicializado en 0 = servidor no listo)
+    // Crear semáforo de estado
     semid_estado = Crea_semaforo(llave_sem_estado, 0);
     if (semid_estado == -1) {
         perror("Error al crear semáforo de estado");
@@ -457,7 +547,7 @@ int main() {
     printf("Memoria compartida creada (ID: %d)\n", shmid_global);
     printf("Semáforo creado (ID: %d)\n", semid);
     
-    // SEÑALIZAR QUE EL SERVIDOR ESTÁ LISTO (up en semáforo de estado)
+    // SEÑALIZAR QUE EL SERVIDOR ESTÁ LISTO
     up(semid_estado);
     printf("\n*** SERVIDOR LISTO PARA ACEPTAR CONEXIONES ***\n");
     printf("\nEsperando clientes...\n");
@@ -489,6 +579,11 @@ int main() {
             printf("Cliente #%d conectado (slot %d)\n", cliente_contador, slot_disponible);
             printf("Clientes activos: %d/%d\n", num_activos, MAX_CLIENTES);
             
+            // LOG: Cliente conectado
+            char detalles[256];
+            snprintf(detalles, sizeof(detalles), "Slot: %d, PID: %d", slot_disponible, datos->clientes[slot_disponible].cliente_id);
+            log_evento_auth(LOG_CLIENTE_CONECTADO, "", detalles, cliente_contador);
+            
             args[slot_disponible].datos = datos;
             args[slot_disponible].semid = semid;
             args[slot_disponible].cliente_index = slot_disponible;
@@ -509,7 +604,6 @@ int main() {
         usleep(100000);
     }
     
-    // Limpieza (en caso de salida normal, aunque normalmente se usa Ctrl+C)
     limpiar_recursos(0);
     
     return 0;

@@ -15,17 +15,26 @@ void ui_init()
     {
         start_color();
         
+        // COLOR_BLACK   (0) -- Negro
+        // COLOR_RED     (1) -- Rojo
+        // COLOR_GREEN   (2) -- Verde
+        // COLOR_YELLOW  (3) -- Amarillo
+        // COLOR_BLUE    (4) -- Azul
+        // COLOR_MAGENTA (5) -- Magenta
+        // COLOR_CYAN    (6) -- Cian
+        // COLOR_WHITE   (7) -- Blanco
+        
         // Configurar colores de fondo
-        init_pair(1, COLOR_YELLOW, COLOR_BLUE);    // Títulos - amarillo sobre azul
-        init_pair(2, COLOR_GREEN, COLOR_BLACK);     // Éxito - verde sobre negro
-        init_pair(3, COLOR_WHITE, COLOR_RED);       // Error - blanco sobre rojo
-        init_pair(4, COLOR_CYAN, COLOR_BLUE);       // Texto normal - cyan sobre azul
-        init_pair(5, COLOR_BLACK, COLOR_YELLOW);    // Resaltado - negro sobre amarillo
-        init_pair(6, COLOR_WHITE, COLOR_MAGENTA);   // Requisitos - blanco sobre magenta
-        init_pair(7, COLOR_BLACK, COLOR_CYAN);      // Footer - negro sobre cyan
-        init_pair(8, COLOR_YELLOW, COLOR_MAGENTA);  // Bordes especiales
-        init_pair(9, COLOR_BLACK, COLOR_GREEN);     // Éxito alternativo
-        init_pair(10, COLOR_WHITE, COLOR_BLUE);     // Texto importante
+        init_pair(1, COLOR_CYAN, COLOR_BLACK);      // Títulos
+        init_pair(2, COLOR_GREEN, COLOR_WHITE);     // Éxito
+        init_pair(3, COLOR_WHITE, COLOR_RED);       // Error
+        init_pair(4, COLOR_MAGENTA, COLOR_BLACK);   // Texto normal
+        init_pair(5, COLOR_BLACK, COLOR_YELLOW);    // Resaltado
+        init_pair(6, COLOR_WHITE, COLOR_MAGENTA);   // Requisitos
+        init_pair(7, COLOR_BLACK, COLOR_CYAN);      // Footer
+        init_pair(8, COLOR_YELLOW, COLOR_MAGENTA);  // Bordes
+        init_pair(9, COLOR_GREEN, COLOR_WHITE);     // Éxito
+        init_pair(10, COLOR_WHITE, COLOR_BLACK);     // Texto
         
         // Establecer color de fondo por defecto
         bkgd(COLOR_PAIR(4));
