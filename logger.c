@@ -52,8 +52,8 @@ void logger_init() {
 void logger_cleanup() {
     logger_activo = 0;
     
-    FILE* f_auth = fopen("logs_autenticacion.txt", "a");
-    FILE* f_cocina = fopen("logs_cocina.txt", "a");
+    FILE* f_auth = fopen("autenticacion.log", "a");
+    FILE* f_cocina = fopen("cocina.log", "a");
     
     if (f_auth) {
         fprintf(f_auth, "\n========================================\n");
@@ -154,7 +154,7 @@ const char* obtener_nombre_evento_cocina(TipoEventoCocina tipo) {
 // Formatear timestamp
 void obtener_timestamp_formateado(time_t timestamp, char* buffer, int size) {
     struct tm* tm_info = localtime(&timestamp);
-    strftime(buffer, size, "%Y-%m-%d %H:%M:%S", tm_info);
+    strftime(buffer, size, "%d-%m-%Y %H:%M:%S", tm_info);
 }
 
 // Hilo para logging de autenticación
@@ -173,7 +173,7 @@ void* hilo_logger_auth(void* arg) {
             pthread_mutex_unlock(&mutex_auth);
             
             // Abrir archivo en modo append
-            archivo = fopen("logs_autenticacion.txt", "a");
+            archivo = fopen("autenticacion.log", "a");
             if (archivo) {
                 char timestamp[64];
                 obtener_timestamp_formateado(evento.timestamp, timestamp, sizeof(timestamp));
@@ -223,7 +223,7 @@ void* hilo_logger_cocina(void* arg) {
             pthread_mutex_unlock(&mutex_cocina);
             
             // Abrir archivo en modo append
-            archivo = fopen("logs_cocina.txt", "a");
+            archivo = fopen("cocina.log", "a");
             if (archivo) {
                 char timestamp[64];
                 obtener_timestamp_formateado(evento.timestamp, timestamp, sizeof(timestamp));

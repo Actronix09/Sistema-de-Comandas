@@ -13,18 +13,23 @@ OBJ_PEDIDOS = pedidos.o
 OBJ_UI = ui.o
 OBJ_LOG = logger.o
 
+# Archivos memoria y semáforos
+MEM = servidor_usuarios_mem
+SEM1 = servidor_usuarios_sem
+SEM2 = servidor_estado_sem
+
 # Servidor
 SERVIDOR = Servidor
 SERVIDOR_SRC = Servidor.c
-SERVIDOR_OBJ = $(SERVIDOR_SRC:.c=.o) logger.o
+SERVIDOR_OBJ = Servidor.o logger.o
 
 # Cliente
 CLIENTE = Cliente
 CLIENTE_SRC = Cliente.c
-CLIENTE_OBJ = $(CLIENTE_SRC:.c=.o) interfaz_mesero.o interfaz_cocina.o
+CLIENTE_OBJ = Cliente.o interfaz_mesero.o interfaz_cocina.o
 
 # Regla principal
-all: $(SERVIDOR) $(CLIENTE)
+all: $(SERVIDOR) $(CLIENTE) $(MEM) $(SEM1) $(SEM2)
 
 # Compilar servidor
 $(SERVIDOR): $(SERVIDOR_OBJ) $(OBJ_USUARIO) $(OBJ_PRODUCTOS) $(OBJ_PEDIDOS)
@@ -34,9 +39,16 @@ $(SERVIDOR): $(SERVIDOR_OBJ) $(OBJ_USUARIO) $(OBJ_PRODUCTOS) $(OBJ_PEDIDOS)
 $(CLIENTE): $(CLIENTE_OBJ) $(OBJ_UI) $(OBJ_USUARIO) $(OBJ_PRODUCTOS) $(OBJ_PEDIDOS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS_NCURSES) $(LIBS_CRYPTO)
 
-# Reglas para archivos objeto
-%.o: %.c
-	$(CC) $(CFLAGS) -c $<
+# Crear archivos de memoria compartida y semáforos
+$(MEM) $(SEM1) $(SEM2):
+	touch $@
+
+# Compilación de archivos .c a .o
+Servidor.o: Servidor.c
+	$(CC) $(CFLAGS) -c Servidor.c
+
+Cliente.o: Cliente.c
+	$(CC) $(CFLAGS) -c Cliente.c
 
 usuario.o: usuario.c usuario.h
 	$(CC) $(CFLAGS) -c usuario.c
@@ -62,7 +74,7 @@ logger.o: logger.c logger.h
 # Limpiar archivos compilados
 clean:
 	rm -f *.o $(SERVIDOR) $(CLIENTE)
-	rm -f servidor_usuarios_mem servidor_usuarios_sem servidor_estado_sem
+	rm -f $(SEM1) $(SEM2) $(MEM)
 
 # Limpiar todo incluyendo datos
 cleanall: clean
@@ -85,4 +97,4 @@ help:
 	@echo "  make run-servidor - Compilar y ejecutar servidor"
 	@echo "  make run-cliente  - Compilar y ejecutar cliente"
 
-.PHONY: clean cleanall run-servidor run-cliente help
+.PHONY: all clean cleanall run-servidor run-cliente help

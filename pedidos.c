@@ -129,7 +129,7 @@ int pedidos_crear(const char* mesa, const char* mesero, ItemPedido* items, int n
     // Obtener fecha actual
     time_t t = time(NULL);
     struct tm *tm_info = localtime(&t);
-    strftime(pedidos[total_pedidos].fecha, 20, "%Y-%m-%d %H:%M:%S", tm_info);
+    strftime(pedidos[total_pedidos].fecha, 20, "%d-%m-%Y %H:%M:%S", tm_info);
     
     int id_creado = pedidos[total_pedidos].id;
     total_pedidos++;

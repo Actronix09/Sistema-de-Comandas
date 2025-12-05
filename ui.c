@@ -26,7 +26,7 @@ void ui_init()
         
         // Configurar colores de fondo
         init_pair(1, COLOR_CYAN, COLOR_BLACK);      // Títulos
-        init_pair(2, COLOR_GREEN, COLOR_WHITE);     // Éxito
+        init_pair(2, COLOR_BLACK, COLOR_MAGENTA);   // Éxito
         init_pair(3, COLOR_WHITE, COLOR_RED);       // Error
         init_pair(4, COLOR_MAGENTA, COLOR_BLACK);   // Texto normal
         init_pair(5, COLOR_BLACK, COLOR_YELLOW);    // Resaltado
@@ -34,7 +34,7 @@ void ui_init()
         init_pair(7, COLOR_BLACK, COLOR_CYAN);      // Footer
         init_pair(8, COLOR_YELLOW, COLOR_MAGENTA);  // Bordes
         init_pair(9, COLOR_GREEN, COLOR_WHITE);     // Éxito
-        init_pair(10, COLOR_WHITE, COLOR_BLACK);     // Texto
+        init_pair(10, COLOR_WHITE, COLOR_BLACK);    // Texto
         
         // Establecer color de fondo por defecto
         bkgd(COLOR_PAIR(4));
