@@ -430,7 +430,7 @@ El cliente esperará la conexión con el servidor y mostrará el menú principal
 
 ---
 
-## 🔌 Protocolo de Comunicación
+## Protocolo de Comunicación
 
 ### Operaciones Soportadas
 
@@ -491,7 +491,7 @@ typedef struct {
 
 ---
 
-## 📊 Sistema de Logging
+## Sistema de Logging
 
 ### Archivos de Log
 

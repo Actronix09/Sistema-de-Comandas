@@ -79,7 +79,7 @@ int esperar_servidor() {
             if (try_down(semid_estado) == 0) {
                 // Éxito: el servidor está listo
                 up(semid_estado); // Devolver el semáforo para otros clientes
-                printf(" ✓\n");
+                printf(" >\n");
                 printf("Servidor encontrado y listo!\n");
                 return 0;
             }
@@ -92,7 +92,7 @@ int esperar_servidor() {
         intentos++;
     }
     
-    printf(" ✗\n");
+    printf(" X\n");
     printf("Timeout: El servidor no respondio en %d segundos\n", MAX_INTENTOS_CONEXION);
     return -1;
 }
