@@ -1,0 +1,11 @@
+=== TICKET #1 ===
+Pedido: #1
+Mesa: 6 | Mesero: Juan
+Fecha: 31-12-2025 06:11:18 | Pagado: 31-12-2025 06:12:27
+Estado: PAGADO
+Items:
+  - 2x Hamburguesa Clasica
+  - 3x Pizza Margarita
+Total: $530.00
+====================
+
