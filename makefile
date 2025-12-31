@@ -1,46 +1,104 @@
 # Makefile para Sistema de Comandas
 
 CC = gcc
-CFLAGS = -Wall -Wextra -g
-LIBS = -lncurses -lssl -lcrypto
+CFLAGS = -Wall -g
+LIBS_NCURSES = -lncurses
+LIBS_CRYPTO = -lssl -lcrypto
+LIBS_PTHREAD = -lpthread
 
+# Archivos objeto comunes
+OBJ_USUARIO = usuario.o
+OBJ_PRODUCTOS = productos.o
+OBJ_PEDIDOS = pedidos.o
+OBJ_TICKETS = ticket.o
+OBJ_UI = ui.o
+OBJ_LOG = logger.o
 
-OBJS = main.o ui.o usuario.o sesion.o mesero.o
+# Archivos memoria y semáforos
+MEM = servidor_usuarios_mem
+SEM1 = servidor_usuarios_sem
+SEM2 = servidor_estado_sem
 
+# Servidor
+SERVIDOR = Servidor
+SERVIDOR_SRC = Servidor.c
+SERVIDOR_OBJ = Servidor.o logger.o
 
-TARGET = sistema_comandas
+# Cliente
+CLIENTE = Cliente
+CLIENTE_SRC = Cliente.c
+CLIENTE_OBJ = Cliente.o interfaz_mesero.o interfaz_cocina.o
 
+# Regla principal
+all: $(SERVIDOR) $(CLIENTE) $(MEM) $(SEM1) $(SEM2)
 
-all: $(TARGET)
+# Compilar servidor
+$(SERVIDOR): $(SERVIDOR_OBJ) $(OBJ_USUARIO) $(OBJ_PRODUCTOS) $(OBJ_PEDIDOS) $(OBJ_TICKETS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS_PTHREAD) $(LIBS_CRYPTO)
 
-$(TARGET): $(OBJS)
-	$(CC) $(OBJS) -o $(TARGET) $(LIBS)
+# Compilar cliente
+$(CLIENTE): $(CLIENTE_OBJ) $(OBJ_UI) $(OBJ_USUARIO) $(OBJ_PRODUCTOS) $(OBJ_PEDIDOS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS_NCURSES) $(LIBS_CRYPTO)
 
-main.o: main.c ui.h usuario.h sesion.h
-	$(CC) $(CFLAGS) -c main.c
+# Crear archivos de memoria compartida y semáforos
+$(MEM) $(SEM1) $(SEM2):
+	touch $@
 
-ui.o: ui.c ui.h
-	$(CC) $(CFLAGS) -c ui.c
+# Compilación de archivos .c a .o
+Servidor.o: Servidor.c
+	$(CC) $(CFLAGS) -c Servidor.c
+
+Cliente.o: Cliente.c
+	$(CC) $(CFLAGS) -c Cliente.c
 
 usuario.o: usuario.c usuario.h
 	$(CC) $(CFLAGS) -c usuario.c
 
-sesion.o: sesion.c sesion.h usuario.h ui.h
-	$(CC) $(CFLAGS) -c sesion.c
+productos.o: productos.c productos.h
+	$(CC) $(CFLAGS) -c productos.c
 
+pedidos.o: pedidos.c pedidos.h
+	$(CC) $(CFLAGS) -c pedidos.c
 
-mesero.o: mesero.c mesero.h usuario.h ui.h
-	$(CC) $(CFLAGS) -c mesero.c
+ui.o: ui.c ui.h
+	$(CC) $(CFLAGS) -c ui.c
 
+interfaz_mesero.o: interfaz_mesero.c interfaz_mesero.h
+	$(CC) $(CFLAGS) -c interfaz_mesero.c
 
+interfaz_cocina.o: interfaz_cocina.c interfaz_cocina.h
+	$(CC) $(CFLAGS) -c interfaz_cocina.c
+
+logger.o: logger.c logger.h
+	$(CC) $(CFLAGS) -c logger.c
+
+ticket.o: ticket.c ticket.h
+	$(CC) $(CFLAGS) -c ticket.c
+
+# Limpiar archivos compilados
 clean:
-	rm -f $(OBJS) $(TARGET) usuarios
+	rm -f *.o $(SERVIDOR) $(CLIENTE)
+	rm -f $(SEM1) $(SEM2) $(MEM)
 
+# Limpiar todo incluyendo datos
+all: clean $(SERVIDOR) $(CLIENTE) $(MEM) $(SEM1) $(SEM2)
+	rm -f usuarios pedidos *.log tickets tickets_historial.txt
 
-rebuild: clean all
+# Ejecutar servidor
+run-servidor: $(SERVIDOR)
+	./$(SERVIDOR)
 
+# Ejecutar cliente
+run-cliente: $(CLIENTE)
+	./$(CLIENTE)
 
-run: $(TARGET)
-	./$(TARGET)
+# Ayuda
+help:
+	@echo "Comandos disponibles:"
+	@echo "  make              - Compilar servidor y cliente"
+	@echo "  make clean        - Limpiar archivos compilados"
+	@echo "  make cleanall     - Limpiar todo incluyendo datos"
+	@echo "  make run-servidor - Compilar y ejecutar servidor"
+	@echo "  make run-cliente  - Compilar y ejecutar cliente"
 
-.PHONY: all clean rebuild run
+.PHONY: all clean cleanall run-servidor run-cliente help

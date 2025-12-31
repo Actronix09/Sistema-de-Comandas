@@ -40,7 +40,6 @@ void sesion_iniciar()
         {
             USUARIO* u = usuario_get_by_index(index);
             
-            // Mostrar mensaje de inicio exitoso brevemente
             ui_clear_screen();
             
             int msg_width = 50;
@@ -69,21 +68,44 @@ void sesion_iniciar()
             addch('+');
             attroff(COLOR_PAIR(9) | A_BOLD);
             
-            ui_print_footer("Cargando interfaz...");
-            refresh();
-            napms(1500); // Esperar 1.5 segundos
+            // CUADRO BLANCO - Información del usuario
+            start_row += 6; // Separación entre cuadros
             
-            // Verificar tipo de usuario y mostrar interfaz correspondiente
-            if(u->tipo == 0) // Mesero
-            {
-                #include "mesero.h"
-                mesero_show_interface(u);
-            }
-            else // Cocina (por ahora solo muestra mensaje)
-            {
-                ui_clear_screen();
-                ui_show_info("Interfaz de Cocina en desarrollo...");
-            }
+            attron(COLOR_PAIR(10) | A_BOLD);
+            mvprintw(start_row, start_col, "+");
+            for(int i = 0; i < msg_width - 2; i++) addch('=');
+            addch('+');
+            
+            mvprintw(start_row + 1, start_col, "|");
+            mvprintw(start_row + 1, start_col + msg_width - 1, "|");
+            attroff(COLOR_PAIR(10) | A_BOLD);
+            
+            attron(COLOR_PAIR(10));
+            char msg[256];
+            sprintf(msg, "Bienvenido: %s", u->name);
+            mvprintw(start_row + 1, (COLS - strlen(msg))/2, "%s", msg);
+            
+            attron(COLOR_PAIR(10) | A_BOLD);
+            mvprintw(start_row + 2, start_col, "|");
+            mvprintw(start_row + 2, start_col + msg_width - 1, "|");
+            attroff(COLOR_PAIR(10) | A_BOLD);
+            
+            attron(COLOR_PAIR(10));
+            sprintf(msg, "Tipo: %s", u->tipo == 1 ? "Cocina" : "Mesero");
+            mvprintw(start_row + 2, (COLS - strlen(msg))/2, "%s", msg);
+            
+            attron(COLOR_PAIR(10) | A_BOLD);
+            mvprintw(start_row + 3, start_col, "|");
+            mvprintw(start_row + 3, start_col + msg_width - 1, "|");
+            
+            mvprintw(start_row + 4, start_col, "+");
+            for(int i = 0; i < msg_width - 2; i++) addch('=');
+            addch('+');
+            attroff(COLOR_PAIR(10) | A_BOLD);
+            
+            ui_print_footer("Presione cualquier tecla para continuar...");
+            refresh();
+            ui_wait_key();
             
             return; // Salir exitosamente
         }
