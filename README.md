@@ -585,3 +585,27 @@ reset
 # o
 stty sane
 ```
+
+# 🎫 SISTEMA DE TICKETS
+
+## Características Nuevas
+- **Generación automática** de tickets al crear pedidos
+- **Estados**: PENDIENTE_PAGO (0) → PAGADO (1)
+- **Historial(Vista ticket tipo fisico)** en `tickets_historial.txt`
+- **Historial(Base de datos)** en `tickets.txt`
+- **Interfaz mesero**: Nuevo botón "Visualizar Tickets"
+
+## Nuevas Operaciones
+- `OP_LISTAR_TICKETS` (10) - Listar tickets pendientes
+- `OP_MARCAR_TICKET_PAGADO` (11) - Marcar como pagado
+
+## Archivos Nuevos
+ticket.c / ticket.h # Gestión de tickets
+tickets # Tickets activos
+tickets_historial.txt # Historial pagados
+
+## Uso
+1. Mesero crea pedido → Ticket automático generado
+2. Menú → Visualizar Tickets → Ver lista pendientes
+3. ENTER: Ver detalle | 'P': Marcar pagado
+4. Ticket pagado → Se mueve a historial
