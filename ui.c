@@ -240,6 +240,90 @@ void ui_show_info(const char* message)
     getch();
 }
 
+// Leer entrada del usuario con placeholder
+void ui_read_input_with_placeholder(int row, int col, char* buffer, int max_len, int hide, const char* placeholder)
+{
+    int i = 0;
+    int key;
+    int input_started = 0; // Indica si el usuario ha comenzado a escribir
+
+    move(row, col);
+    clrtoeol(); // Limpiar la línea
+
+    // Mostrar placeholder inicialmente
+    attron(COLOR_PAIR(8)); // Usar color apagado para el placeholder
+    mvprintw(row, col, "%s", placeholder);
+    attroff(COLOR_PAIR(8));
+
+    curs_set(1);
+
+    while(1)
+    {
+        key = getch();
+
+        if(key == 10) break; // ENTER
+
+        if(key == 27) // ESC
+        {
+            buffer[0] = '\0';
+            i = 0;
+            break;
+        }
+
+        if((key == 127 || key == 8 || key == KEY_BACKSPACE) && i > 0) // Backspace
+        {
+            i--;
+            buffer[i] = '\0';
+
+            // Redibujar la línea limpiando lo que se ha escrito
+            move(row, col);
+            clrtoeol();
+
+            if (i == 0 && !input_started) {
+                // Si se borra completamente y no se había empezado a escribir, mostrar placeholder
+                attron(COLOR_PAIR(8)); // Usar color apagado
+                mvprintw(row, col, "%s", placeholder);
+                attroff(COLOR_PAIR(8));
+            } else {
+                // Si aún hay texto o ya había empezado a escribir, mostrarlo con el formato adecuado
+                for(int j = 0; j < i; j++) {
+                    addch(hide ? '*' : buffer[j]);
+                }
+            }
+        }
+        else if(key >= 32 && key <= 126 && i < max_len - 1)
+        {
+            input_started = 1; // Marcar que el usuario ha comenzado a escribir
+
+            // Si es la primera entrada, borrar placeholder
+            if (i == 0) {
+                move(row, col);
+                clrtoeol();
+            }
+
+            buffer[i] = key;
+            i++;
+            buffer[i] = '\0';
+
+            // Mostrar caracter con ocultamiento si es contraseña
+            addch(hide ? '*' : key);
+        }
+
+        refresh();
+    }
+
+    // Posicionar cursor después del campo para no afectar otros inputs
+    move(row + 1, 0); // Mover cursor a la siguiente línea
+    refresh();
+
+    curs_set(0);
+
+    // Si no se ingresó nada o es el placeholder, mantener vacío
+    if (i == 0 && !input_started) {
+        buffer[0] = '\0';
+    }
+}
+
 // Esperar tecla
 void ui_wait_key()
 {

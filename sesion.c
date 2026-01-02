@@ -68,8 +68,8 @@ void sesion_iniciar()
             addch('+');
             attroff(COLOR_PAIR(9) | A_BOLD);
             
-            // CUADRO BLANCO - Información del usuario
-            start_row += 6; // Separación entre cuadros
+            // Información del usuario
+            start_row += 6;
             
             attron(COLOR_PAIR(10) | A_BOLD);
             mvprintw(start_row, start_col, "+");
@@ -91,7 +91,7 @@ void sesion_iniciar()
             attroff(COLOR_PAIR(10) | A_BOLD);
             
             attron(COLOR_PAIR(10));
-            sprintf(msg, "Tipo: %s", u->tipo == 1 ? "Cocina" : "Mesero");
+            sprintf(msg, "Tipo: %s", u->tipo == 2 ? "Administrador" : (u->tipo == 1 ? "Cocina" : "Mesero"));
             mvprintw(start_row + 2, (COLS - strlen(msg))/2, "%s", msg);
             
             attron(COLOR_PAIR(10) | A_BOLD);
@@ -107,7 +107,7 @@ void sesion_iniciar()
             refresh();
             ui_wait_key();
             
-            return; // Salir exitosamente
+            return;
         }
         else
         {
@@ -158,7 +158,7 @@ void sesion_crear_usuario()
         mvprintw(10, 5, "Contrasena:");
         mvprintw(12, 5, "Email:");
         mvprintw(14, 5, "Telefono:");
-        mvprintw(16, 5, "Tipo (C=Cocina, M=Mesero):");
+        mvprintw(16, 5, "Tipo (A=Administrador, C=Cocina, M=Mesero):");
         attroff(COLOR_PAIR(10) | A_BOLD);
         
         ui_print_footer("Presione ESC para cancelar");
@@ -287,10 +287,12 @@ void sesion_crear_usuario()
         if(!error_encontrado)
         {
             // Leer tipo
-            int opcion = ui_read_char_option(16, 32, "CM");
+            int opcion = ui_read_char_option(16, 38, "ACM");
             if(opcion == 27) return; // ESC
 
-            tipo = (opcion == 'C') ? 1 : 0;
+            if(opcion == 'A') tipo = 2;
+            else if(opcion == 'C') tipo = 1;
+            else tipo = 0;
 
             // Crear usuario
             int resultado = usuario_crear(name, user, pass, mail, telf, tipo);

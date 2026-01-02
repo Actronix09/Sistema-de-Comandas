@@ -1,4 +1,5 @@
 #include "productos.h"
+#include "inventario.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -16,28 +17,31 @@ void productos_cargar() {
         printf("Archivo de productos no encontrado, creando uno nuevo...\n");
         return;
     }
-    
+
     total_productos = 0;
     char linea[512];
-    
+
     while(fgets(linea, sizeof(linea), archivo) && total_productos < MAX_PRODUCTOS) {
         linea[strcspn(linea, "\n")] = 0;
-        
+
         char *token = strtok(linea, "|");
         if(token) productos[total_productos].id = atoi(token);
-        
+
         token = strtok(NULL, "|");
         if(token) strncpy(productos[total_productos].nombre, token, MAX_NOMBRE_PRODUCTO-1);
-        
+
         token = strtok(NULL, "|");
         if(token) strncpy(productos[total_productos].descripcion, token, MAX_DESCRIPCION-1);
-        
+
         token = strtok(NULL, "|");
         if(token) productos[total_productos].precio = atof(token);
-        
+
+        // Inicializar ingredientes
+        productos[total_productos].num_ingredientes = 0;
+
         total_productos++;
     }
-    
+
     fclose(archivo);
     printf("Productos cargados: %d\n", total_productos);
 }
@@ -78,13 +82,105 @@ PRODUCTO* productos_get_by_id(int id) {
 int productos_agregar(const char* nombre, const char* descripcion, float precio) {
     if(total_productos >= MAX_PRODUCTOS)
         return -1;
-    
-    productos[total_productos].id = total_productos + 1;
+
+    // Encontrar el siguiente ID disponible
+    int next_id = 1;
+    int id_encontrado = 0;
+    while(!id_encontrado && next_id <= MAX_PRODUCTOS) {
+        int existe = 0;
+        for(int i = 0; i < total_productos; i++) {
+            if(productos[i].id == next_id) {
+                existe = 1;
+                break;
+            }
+        }
+        if(!existe) {
+            id_encontrado = 1;
+        } else {
+            next_id++;
+        }
+    }
+
+    if(!id_encontrado) {
+        return -1; // No se pudo encontrar un ID disponible
+    }
+
+    productos[total_productos].id = next_id;
     strncpy(productos[total_productos].nombre, nombre, MAX_NOMBRE_PRODUCTO-1);
     strncpy(productos[total_productos].descripcion, descripcion, MAX_DESCRIPCION-1);
     productos[total_productos].precio = precio;
-    
+    productos[total_productos].num_ingredientes = 0;
     total_productos++;
     productos_guardar();
     return 0;
 }
+
+int producto_agregar_ingrediente(int id_producto, int id_ingrediente, int cantidad) {
+    PRODUCTO* prod = productos_get_by_id(id_producto);
+    if(prod == NULL || prod->num_ingredientes >= MAX_INGREDIENTES_PRODUCTO) {
+        return -1;
+    }
+
+    prod->ingredientes[prod->num_ingredientes].id = prod->num_ingredientes + 1;
+    prod->ingredientes[prod->num_ingredientes].id_ingrediente = id_ingrediente;
+    prod->ingredientes[prod->num_ingredientes].cantidad_necesaria = cantidad;
+    prod->num_ingredientes++;
+
+    // Vincular el sistema de inventario
+    producto_vincular_ingrediente(id_producto, id_ingrediente, cantidad);
+
+    return 0;
+}
+
+int producto_verificar_disponibilidad_cantidad(int id_producto, int cantidad_pedido) {
+    PRODUCTO* prod = productos_get_by_id(id_producto);
+    if(prod == NULL) return 0;
+
+    // Verificar que haya suficiente cantidad de cada ingredientes
+    for(int i = 0; i < prod->num_ingredientes; i++) {
+        Ingrediente* ing = inventario_get_by_id(prod->ingredientes[i].id_ingrediente);
+        int cantidad_necesaria = prod->ingredientes[i].cantidad_necesaria * cantidad_pedido;
+        if(ing == NULL || ing->cantidad < cantidad_necesaria) {
+            return 0; // No hay suficiente stock
+        }
+    }
+
+    return 1; // Producto disponible
+}
+
+int producto_verificar_disponibilidad(int id_producto) {
+    return producto_verificar_disponibilidad_cantidad(id_producto, 1);
+}
+
+// Función para eliminar producto
+int producto_eliminar(int id_producto) {
+    int index = -1;
+    // Encontrar el índice del producto a eliminar
+    for(int i = 0; i < total_productos; i++) {
+        if(productos[i].id == id_producto) {
+            index = i;
+            break;
+        }
+    }
+
+    if(index == -1) {
+        return -1; // Producto no encontrado
+    }
+
+    // Eliminar todas las relaciones que usan este producto
+    inventario_eliminar_relaciones_producto(id_producto);
+
+    // Desplazar todos los productos después del eliminado hacia atrás
+    for(int i = index; i < total_productos - 1; i++) {
+        productos[i] = productos[i + 1];
+    }
+
+    // Decrementar el total de productos
+    total_productos--;
+
+    // Guardar cambios
+    productos_guardar();
+
+    return 0; // Éxito
+}
+

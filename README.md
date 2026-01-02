@@ -1,6 +1,6 @@
 # Sistema de Comandas - Restaurante
 
-Sistema cliente-servidor para la gestión de comandas en restaurantes, desarrollado en C con comunicación mediante memoria compartida y semáforos. Implementa interfaces separadas para meseros y cocina con autenticación de usuarios.
+Sistema cliente-servidor para la gestión de comandas en restaurantes, desarrollado en C con comunicación mediante memoria compartida y semáforos. Implementa interfaces separadas para meseros, cocina y administración con autenticación de usuarios.
 
 ## 📋 Tabla de Contenidos
 
@@ -13,19 +13,22 @@ Sistema cliente-servidor para la gestión de comandas en restaurantes, desarroll
 - [Documentación de Módulos](#documentación-de-módulos)
 - [Protocolo de Comunicación](#protocolo-de-comunicación)
 - [Sistema de Logging](#sistema-de-logging)
+- [Gestión de Inventario](#gestión-de-inventario)
 
 ---
 
 ## ✨ Características
 
 - **Autenticación de usuarios** con encriptación MD5
-- **Interfaz dual**: Meseros y Cocina con funcionalidades específicas
+- **Interfaz triple**: Meseros, Cocina y Administración con funcionalidades específicas
 - **Arquitectura cliente-servidor** usando memoria compartida IPC
 - **Gestión de pedidos en tiempo real** con estados (Pendiente, En Progreso, Completado)
 - **Sistema de logging asíncrono** para auditoría
 - **Interfaz de usuario en terminal** usando ncurses
 - **Validación robusta** de datos (contraseñas, emails, teléfonos)
 - **Soporte multi-cliente** (hasta 10 clientes simultáneos)
+- **Gestión de inventario** con control de ingredientes
+- **Gestión de usuarios** con roles y permisos
 
 ---
 
@@ -40,8 +43,8 @@ Sistema cliente-servidor para la gestión de comandas en restaurantes, desarroll
 └─────────────┘         │                  │         └─────────────┘
                         │  - Memoria       │
 ┌─────────────┐         │    Compartida    │         ┌─────────────┐
-│  Cliente 3  │◄───────►│  - Semáforos     │◄───────►│  Cliente N  │
-│  (Mesero)   │         │  - Hilos         │         │  (...)      │
+│  Cliente 3  │◄───────►│  - Semáforos     │◄───────►│  Cliente 4  │
+│  (Admin)    │         │  - Hilos         │         │  (...)      │
 └─────────────┘         └──────────────────┘         └─────────────┘
                                  │
                                  ▼
@@ -51,6 +54,7 @@ Sistema cliente-servidor para la gestión de comandas en restaurantes, desarroll
                         │  - usuarios     │
                         │  - productos    │
                         │  - pedidos      │
+                        │  - inventario   │
                         │  - *.log        │
                         └─────────────────┘
 ```
@@ -100,29 +104,32 @@ sudo pacman -S base-devel ncurses openssl
 ```
 SistemasOperativosTrabajoFinalDEV/
 │
-├── Servidor.c              # Servidor principal (gestión de clientes)
-├── Cliente.c               # Cliente principal (menú de autenticación)
+├── Servidor.c                 # Servidor principal (gestión de clientes)
+├── Cliente.c                  # Cliente principal (menú de autenticación)
 │
-├── usuario.c / usuario.h   # Gestión de usuarios y autenticación
-├── productos.c / productos.h   # Catálogo de productos
-├── pedidos.c / pedidos.h   # Gestión de pedidos
+├── usuario.c / usuario.h      # Gestión de usuarios y autenticación
+├── usuarios.c / usuarios.h    # Funciones auxiliares de usuario
+├── productos.c / productos.h  # Catálogo de productos
+├── pedidos.c / pedidos.h      # Gestión de pedidos
+├── inventario.c / inventario.h # Gestión de inventario y stock
 │
-├── ui.c / ui.h             # Interfaz de usuario (ncurses)
-├── interfaz_mesero.c / interfaz_mesero.h   # Interfaz específica de meseros
-├── interfaz_cocina.c / interfaz_cocina.h   # Interfaz específica de cocina
+├── ui.c / ui.h                # Interfaz de usuario (ncurses)
+├── interfaz_mesero.c / interfaz_mesero.h    # Interfaz específica de meseros
+├── interfaz_cocina.c / interfaz_cocina.h    # Interfaz específica de cocina
+├── interfaz_admin.c / interfaz_admin.h      # Interfaz específica de administración
 │
-├── logger.c / logger.h     # Sistema de logging asíncrono
-├── sesion.c / sesion.h     # Gestión de sesiones
+├── logger.c / logger.h        # Sistema de logging asíncrono
+├── sesion.c / sesion.h        # Gestión de sesiones
 │
-├── protocolo.h             # Definiciones del protocolo de comunicación
+├── protocolo.h                # Definiciones del protocolo de comunicación
 │
-├── makefile                # Script de compilación
-├── productos               # Archivo de datos de productos
-├── usuarios                # Archivo de datos de usuarios (generado)
-├── pedidos                 # Archivo de datos de pedidos (generado)
+├── makefile                   # Script de compilación
+├── productos                  # Archivo de datos de productos
+├── usuarios                   # Archivo de datos de usuarios (generado)
+├── pedidos                    # Archivo de datos de pedidos (generado)
 │
-├── autenticacion.log       # Log de eventos de autenticación (generado)
-├── cocina.log              # Log de eventos de cocina (generado)
+├── autenticacion.log          # Log de eventos de autenticación (generado)
+├── cocina.log                 # Log de eventos de cocina (generado)
 │
 ├── .gitignore
 └── README.md
@@ -168,7 +175,7 @@ gcc -Wall -g -o Servidor Servidor.c usuario.c productos.c pedidos.c logger.c -lp
 
 #### Cliente
 ```bash
-gcc -Wall -g -o Cliente Cliente.c usuario.c ui.c interfaz_mesero.c interfaz_cocina.c productos.c pedidos.c -lncurses -lssl -lcrypto
+gcc -Wall -g -o Cliente Cliente.c usuario.c ui.c interfaz_mesero.c interfaz_cocina.c interfaz_admin.c productos.c pedidos.c inventario.c usuarios.c -lncurses -lssl -lcrypto
 ```
 
 ---
@@ -227,6 +234,14 @@ El cliente esperará la conexión con el servidor y mostrará el menú principal
 3. Presionar '1' para marcar como "En Progreso"
 4. Presionar '2' para marcar como "Listo"
 5. Presionar 'R' para actualizar vista
+
+#### Para Administración:
+1. Crear usuario (tipo Administrador) o Iniciar sesión
+2. Acceder a la interfaz de administración
+3. Gestionar usuarios (crear, modificar, eliminar)
+4. Gestionar productos (crear, modificar, eliminar)
+5. Gestionar inventario (ingredientes y stock)
+6. Ver reportes de pedidos y actividad
 
 ### 4. Detener el Sistema
 
@@ -397,6 +412,35 @@ El cliente esperará la conexión con el servidor y mostrará el menú principal
 - `R`: Actualizar vista
 - ESC: Salir
 
+### interfaz_admin.c
+
+**Responsabilidades:**
+- Interfaz completa para administradores
+- Gestión de usuarios (crear, modificar, eliminar)
+- Gestión de productos (crear, modificar, eliminar)
+- Gestión de inventario (ingredientes y stock)
+- Visualización de reportes y estadísticas
+- Control de todo el sistema
+
+**Funciones clave:**
+- `interfaz_admin_ejecutar()` - Loop principal de interfaz
+- `enviar_peticion_admin()` - Comunicación con servidor
+- `menu_gestion_usuarios()` - Submenú de gestión de usuarios
+- `menu_gestion_productos()` - Submenú de gestión de productos
+- `menu_gestion_inventario()` - Submenú de gestión de inventario
+- `dibujar_tabla_usuarios()` - Mostrar tabla de usuarios
+- `dibujar_tabla_productos()` - Mostrar tabla de productos
+- `dibujar_tabla_ingr()` - Mostrar tabla de ingredientes
+
+**Navegación:**
+- Flechas: Navegar entre opciones y elementos
+- ENTER: Seleccionar opción o confirmar
+- 'C': Crear nuevo elemento
+- 'E': Editar elemento seleccionado
+- 'D': Eliminar elemento seleccionado
+- 'V': Volver al menú anterior
+- ESC: Salir de la interfaz
+
 ### logger.c
 
 **Responsabilidades:**
@@ -444,6 +488,9 @@ El cliente esperará la conexión con el servidor y mostrará el menú principal
 | `OP_CREAR_PEDIDO` | Crear pedido | Registrar nueva orden |
 | `OP_LISTAR_PEDIDOS` | Listar pedidos | Obtener pedidos activos |
 | `OP_CAMBIAR_ESTADO_PEDIDO` | Cambiar estado | Actualizar estado de pedido |
+| `OP_GESTION_USUARIOS` | Gestionar usuarios | Listar, crear, modificar o eliminar usuarios (admin) |
+| `OP_GESTION_PRODUCTOS` | Gestionar productos | Listar, crear, modificar o eliminar productos (admin) |
+| `OP_GESTION_INVENTARIO` | Gestionar inventario | Listar, crear, modificar o eliminar ingredientes (admin) |
 
 ### Códigos de Respuesta
 
@@ -533,6 +580,7 @@ En `protocolo.h` y archivos de cabecera:
 #define MAX_PEDIDOS 500              // Pedidos históricos
 #define MAX_ITEMS_PEDIDO 20          // Items por pedido
 #define MAX_LOG_QUEUE 1000           // Buffer de logs
+#define MAX_INGREDIENTES 200         // Ingredientes en inventario
 ```
 
 ### Archivos de Persistencia
@@ -540,10 +588,66 @@ En `protocolo.h` y archivos de cabecera:
 - `usuarios` - Base de datos de usuarios (formato: name|user|pass_hash|mail|telf|tipo)
 - `productos` - Catálogo de productos (formato: id|nombre|descripcion|precio)
 - `pedidos` - Histórico de pedidos (formato complejo con items embebidos)
+- `inventario` - Datos de ingredientes y stock (formato: id|nombre|stock|unidad)
 
 ---
 
 ## Resolución de Problemas
+
+### Problemas comunes de compilación
+
+**Error con biblioteca ncurses**:
+```
+fatal error: ncurses.h: No such file or directory
+```
+**Solución**:
+- Ubuntu/Debian: `sudo apt-get install libncurses5-dev libncursesw5-dev`
+- Fedora/RHEL/CentOS: `sudo dnf install ncurses-devel`
+- Arch Linux: `sudo pacman -S ncurses`
+
+### Problemas de encriptación
+
+**Error con OpenSSL**:
+```
+fatal error: openssl/evp.h: No such file or directory
+```
+**Solución**:
+- Ubuntu/Debian: `sudo apt-get install libssl-dev`
+- Fedora/RHEL/CentOS: `sudo dnf install openssl-devel`
+- Arch Linux: `sudo pacman -S openssl`
+
+---
+
+## Gestión de Inventario
+
+El sistema incluye una funcionalidad avanzada de gestión de inventario que permite a los administradores:
+
+- **Registrar ingredientes**: Nombre, ID, stock actual y unidad de medida
+- **Actualizar stock**: Ajustar cantidades según abastecimiento
+- **Relacionar productos con ingredientes**: Definir qué ingredientes y cuánta cantidad se necesita para cada producto
+- **Control de stock en tiempo real**: Al crear pedidos, se reducen automáticamente los ingredientes utilizados
+
+### Funcionalidades de Inventario
+
+#### En interfaz de administración:
+1. **Lista de ingredientes**: Visualización de todos los ingredientes con stock actual
+2. **Agregar ingrediente**: Crear nuevos ingredientes con nombre, unidad y stock inicial
+3. **Modificar stock**: Actualizar cantidades disponibles
+4. **Eliminar ingrediente**: Remover ingredientes no utilizados
+5. **Asociar ingredientes a productos**: Definir la receta de cada producto
+6. **Reporte de stock bajo**: Alerta cuando el stock está por debajo del umbral mínimo
+
+#### Control automático:
+- Al crear un pedido, el sistema verifica disponibilidad de ingredientes
+- Si no hay suficiente stock, se impide la creación del pedido
+- Actualización automática de inventario al confirmar pedidos
+- Registro de movimientos de inventario en logs
+
+### Archivo de persistencia
+
+- `inventario` - Almacena la información de ingredientes en formato: `id|nombre|stock|unidad`
+- El sistema carga este archivo al iniciar y lo actualiza periódicamente
+- Los cambios en el inventario son persistentes entre reinicios del sistema
 
 ### El cliente no puede conectarse
 
