@@ -4,7 +4,7 @@
 #include <openssl/evp.h>
 
 static USUARIO usuarios[MAX_USUARIOS];
-static int total_usuarios = 0;
+int total_usuarios = 0;
 
 // Inicializar sistema de usuarios
 void usuario_init()
@@ -212,13 +212,32 @@ int validar_email(const char* mail)
 int validar_telefono(const char* telf)
 {
     int longitud = 0;
-    
+
     for(int i = 0; telf[i] != '\0' && i < MAX_CHAIN_SIZE; i++)
     {
         longitud++;
         if(telf[i] < '0' || telf[i] > '9')
             return 1;
     }
-    
+
     return (longitud >= 8) ? 0 : 1;
+}
+
+// Eliminar usuario por nombre
+int usuario_eliminar_por_nombre(const char* user)
+{
+    for(int i = 0; i < total_usuarios; i++)
+    {
+        if(strcmp(usuarios[i].user, user) == 0)
+        {
+            // Mover todos los usuarios después de i una posición hacia atrás
+            for(int j = i; j < total_usuarios - 1; j++)
+            {
+                usuarios[j] = usuarios[j + 1];
+            }
+            total_usuarios--;
+            return 0; // Éxito
+        }
+    }
+    return -1; // Usuario no encontrado
 }

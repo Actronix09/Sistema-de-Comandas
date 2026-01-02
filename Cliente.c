@@ -9,8 +9,7 @@
 #include "ui.h"
 #include "usuario.h"
 #include "protocolo.h"
-#include "interfaz_mesero.h"
-#include "interfaz_cocina.h"
+#include "interfaces.h"
 
 #define PERMISOS 0644
 #define MAX_CLIENTES 10
@@ -75,7 +74,7 @@ int esperar_servidor() {
         semid_estado = semget(llave_sem_estado, 1, PERMISOS);
         
         if (semid_estado != -1) {
-            // El semáforo existe, intentar hacer down (esperar señal de listo)
+            // El semáforo existe, intentar hacer down
             if (try_down(semid_estado) == 0) {
                 // Éxito: el servidor está listo
                 up(semid_estado); // Devolver el semáforo para otros clientes
@@ -198,7 +197,7 @@ int enviar_peticion(Peticion *pet, Respuesta *resp) {
         timeout++;
     }
     
-    return -1; // Timeout
+    return -1;
 }
 
 // Desconectar del servidor
@@ -605,7 +604,10 @@ int main() {
                 
                 if (iniciar_sesion(&usuario_logueado) == 0) {
                     // Lanzar interfaz según tipo
-                    if (usuario_logueado.tipo == 1) {
+                    if (usuario_logueado.tipo == 2) {
+                        // Administrador
+                        interfaz_admin_ejecutar(&usuario_logueado);
+                    } else if (usuario_logueado.tipo == 1) {
                         // Cocina
                         interfaz_cocina_ejecutar(&usuario_logueado);
                     } else {

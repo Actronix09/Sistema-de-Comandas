@@ -1,4 +1,6 @@
 #include "pedidos.h"
+#include "productos.h"
+#include "inventario.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -114,34 +116,56 @@ PEDIDO* pedidos_get_by_id(int id) {
 int pedidos_crear(const char* mesa, const char* mesero, ItemPedido* items, int num_items) {
     if(total_pedidos >= MAX_PEDIDOS || num_items > MAX_ITEMS_PEDIDO)
         return -1;
-    
+
+    // Verificar disponibilidad de ingredientes para cada producto
+    for(int i = 0; i < num_items; i++) {
+        if(!producto_verificar_disponibilidad_cantidad(items[i].producto_id, items[i].cantidad)) {
+            return -2; // No hay ingredientes suficientes
+        }
+    }
+
     pedidos[total_pedidos].id = siguiente_id++;
     strncpy(pedidos[total_pedidos].mesa, mesa, MAX_MESA-1);
     strncpy(pedidos[total_pedidos].mesero, mesero, 99);
     pedidos[total_pedidos].num_items = num_items;
-    
+
     for(int i = 0; i < num_items; i++) {
         pedidos[total_pedidos].items[i] = items[i];
     }
-    
+
     pedidos[total_pedidos].estado = ESTADO_NO_EMPEZADO;
-    
+
     // Obtener fecha actual
     time_t t = time(NULL);
     struct tm *tm_info = localtime(&t);
     strftime(pedidos[total_pedidos].fecha, 20, "%d-%m-%Y %H:%M:%S", tm_info);
-    
+
     int id_creado = pedidos[total_pedidos].id;
     total_pedidos++;
     pedidos_guardar();
-    
+
     return id_creado;
 }
 
 int pedidos_cambiar_estado(int id, EstadoPedido nuevo_estado) {
     for(int i = 0; i < total_pedidos; i++) {
         if(pedidos[i].id == id) {
+            EstadoPedido estado_anterior = pedidos[i].estado;
             pedidos[i].estado = nuevo_estado;
+
+            // Si el estado cambió a ESTADO_LISTO, reducir el stock de ingredientes
+            if(nuevo_estado == ESTADO_LISTO && estado_anterior != ESTADO_LISTO) {
+                for(int j = 0; j < pedidos[i].num_items; j++) {
+                    PRODUCTO* prod = productos_get_by_id(pedidos[i].items[j].producto_id);
+                    if(prod != NULL) {
+                        for(int k = 0; k < prod->num_ingredientes; k++) {
+                            int cantidad_a_restar = prod->ingredientes[k].cantidad_necesaria * pedidos[i].items[j].cantidad;
+                            inventario_actualizar_stock(prod->ingredientes[k].id_ingrediente, cantidad_a_restar);
+                        }
+                    }
+                }
+            }
+
             pedidos_guardar();
             return 0;
         }
@@ -156,4 +180,33 @@ int pedidos_contar_por_estado(EstadoPedido estado) {
             count++;
     }
     return count;
+}
+
+// Función para eliminar pedido
+int pedido_eliminar(int id_pedido) {
+    int index = -1;
+    // Encontrar el índice del pedido a eliminar
+    for(int i = 0; i < total_pedidos; i++) {
+        if(pedidos[i].id == id_pedido) {
+            index = i;
+            break;
+        }
+    }
+
+    if(index == -1) {
+        return -1; // Pedido no encontrado
+    }
+
+    // Desplazar todos los pedidos después del eliminado hacia atrás
+    for(int i = index; i < total_pedidos - 1; i++) {
+        pedidos[i] = pedidos[i + 1];
+    }
+
+    // Decrementar el total de pedidos
+    total_pedidos--;
+
+    // Guardar cambios
+    pedidos_guardar();
+
+    return 0; // Éxito
 }

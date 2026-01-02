@@ -37,5 +37,6 @@ PEDIDO* pedidos_get_by_id(int id);
 int pedidos_crear(const char* mesa, const char* mesero, ItemPedido* items, int num_items);
 int pedidos_cambiar_estado(int id, EstadoPedido nuevo_estado);
 int pedidos_contar_por_estado(EstadoPedido estado);
+int pedido_eliminar(int id_pedido);
 
 #endif

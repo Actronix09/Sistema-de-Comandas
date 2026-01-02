@@ -64,5 +64,8 @@ servidor_usuarios_mem
 servidor_usuarios_sem
 usuarios
 pedidos
+inventario
+*.log
 
 /.vscode
+/node_modules

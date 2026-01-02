@@ -11,7 +11,7 @@ typedef struct
     char pass[33];
     char mail[MAX_CHAIN_SIZE];
     char telf[MAX_CHAIN_SIZE];
-    int tipo;
+    int tipo;  // 0 = Mesero, 1 = Cocina, 2 = Administrador
 } USUARIO;
 
 // Gestión de usuarios
@@ -32,7 +32,13 @@ int validar_password(const char* pass);
 int validar_email(const char* mail);
 int validar_telefono(const char* telf);
 
+// Función para eliminar usuario por nombre
+int usuario_eliminar_por_nombre(const char* user);
+
 // Encriptación
 void encriptar_password(const char* input, char* output);
+
+// Variable externa para acceso directo
+extern int total_usuarios;
 
 #endif
