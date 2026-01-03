@@ -17,6 +17,8 @@ void mostrar_logs(const char* nombre_archivo);
 void inicializar_ncurses();
 void finalizar_ncurses();
 int mostrar_menu_principal();
+void dibujar_botones_si_no(int centro_x, int boton_y, int seleccion, int ancho_boton, int alto_boton);
+void dibujar_botones_confirmacion(int centro_x, int boton_y, int seleccion, int ancho_boton, int alto_boton, char *texto_opcion1, char *texto_opcion2);
 void dibujar_recuadro_usuario_horizontal(int x, int y, int ancho, USUARIO *usr, int usr_index, int seleccionado);
 void dibujar_recuadro_nuevo_usuario_horizontal(int x, int y, int ancho, int seleccionado);
 void calcular_layout_productos(int num_productos, int *cols, int *filas, int *ancho, int *alto);
