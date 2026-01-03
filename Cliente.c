@@ -10,6 +10,7 @@
 #include "usuario.h"
 #include "protocolo.h"
 #include "interfaces.h"
+#include "recuperar_password.h"
 
 #define PERMISOS 0644
 #define MAX_CLIENTES 10
@@ -285,7 +286,7 @@ void crear_usuario() {
         mvprintw(10, 5, "Contrasena:");
         mvprintw(12, 5, "Email:");
         mvprintw(14, 5, "Telefono:");
-        mvprintw(16, 5, "Tipo (C=Cocina, M=Mesero):");
+        mvprintw(16, 5, "Tipo:");
         attroff(COLOR_PAIR(10) | A_BOLD);
         
         ui_print_footer("Presione ESC para cancelar");
@@ -316,112 +317,252 @@ void crear_usuario() {
         if(!error_encontrado) {
             // Mostrar requisitos de contraseña
             attron(COLOR_PAIR(6) | A_BOLD);
-            mvprintw(1, COLS - 45, "+==========================+");
-            mvprintw(2, COLS - 45, "| REQUISITOS DE CONTRASENA |");
-            mvprintw(3, COLS - 45, "+==========================+");
+            mvprintw(1, COLS - 29, "+==========================+");
+            mvprintw(2, COLS - 29, "| REQUISITOS DE CONTRASENA |");
+            mvprintw(3, COLS - 29, "+==========================+");
             attroff(COLOR_PAIR(6) | A_BOLD);
             attron(COLOR_PAIR(6));
-            mvprintw(4, COLS - 45, "| > Minimo 8 caracteres    |");
-            mvprintw(5, COLS - 45, "| > 1 mayuscula (A-Z)      |");
-            mvprintw(6, COLS - 45, "| > 1 minuscula (a-z)      |");
-            mvprintw(7, COLS - 45, "| > 1 numero (0-9)         |");
-            mvprintw(8, COLS - 45, "| > 2 simbolos (*/_-+.)    |");
+            mvprintw(4, COLS - 29, "| > Minimo 8 caracteres    |");
+            mvprintw(5, COLS - 29, "| > 1 mayuscula (A-Z)      |");
+            mvprintw(6, COLS - 29, "| > 1 minuscula (a-z)      |");
+            mvprintw(7, COLS - 29, "| > 1 numero (0-9)         |");
+            mvprintw(8, COLS - 29, "| > 2 simbolos (*/_-+.)    |");
             attroff(COLOR_PAIR(6));
             attron(COLOR_PAIR(6) | A_BOLD);
-            mvprintw(9, COLS - 45, "+==========================+");
+            mvprintw(9, COLS - 29, "+==========================+");
             attroff(COLOR_PAIR(6) | A_BOLD);
             refresh();
-            
+
             // Leer contraseña
             ui_read_input(10, 17, pass, MAX_CHAIN_SIZE, 1);
             if(strlen(pass) == 0) return;
-            
+
             if(validar_password(pass) != 0) {
                 strcpy(mensaje_error, "La contrasena es invalida");
-                error_encontrado = 2;
+
+                ui_clear_screen();
+                
+                ui_print_colored(LINES/2 - 3, (COLS-strlen(mensaje_error))/2, mensaje_error, 3);
+
+                // Mensaje de reintento
+                mvprintw(LINES/2 + 1, (COLS-strlen("¿Intentar otra vez?"))/2, "¿Intentar otra vez?");
+
+                int centro_x = (COLS - 32) / 2; // Centrado para dos botones de 12 caracteres con separación de 20
+                int boton_y = LINES/2 + 3;
+                int boton_ancho = 12;
+                int boton_alto = 3;
+
+                int seleccion = 0; // 0 para Sí, 1 para No
+                int salir_seleccion = 0;
+
+                while(!salir_seleccion) {
+                    // Dibujar botones usando la función centralizada
+                    dibujar_botones_si_no(centro_x, boton_y, seleccion, boton_ancho, boton_alto);
+
+                    ui_print_footer("Use flechas para navegar y Enter para seleccionar");
+                    refresh();
+
+                    int tecla = getch();
+                    if(tecla == KEY_LEFT || tecla == KEY_RIGHT) {
+                        seleccion = 1 - seleccion; // Alternar entre 0 y 1
+                    } else if(tecla == 10) { // Enter
+                        if(seleccion == 0) { // Sí
+                            salir_seleccion = 1;
+                            // Volver al inicio del bucle para intentar de nuevo
+                        } else { // No
+                            intentar_nuevamente = 0;
+                            salir_seleccion = 1;
+                        }
+                    } else if(tecla == 27) { // ESC
+                        intentar_nuevamente = 0;
+                        salir_seleccion = 1;
+                    }
+                }
+                continue; // Volver al inicio del bucle para intentar de nuevo
             }
         }
-        
+
         if(!error_encontrado) {
             // Limpiar requisitos anteriores y mostrar requisitos de email
             for(int i = 1; i <= 9; i++) {
-                move(i, COLS - 45);
+                move(i, COLS - 29);
                 clrtoeol();
             }
-            
+
             attron(COLOR_PAIR(6) | A_BOLD);
-            mvprintw(1, COLS - 45, "+==========================+");
-            mvprintw(2, COLS - 45, "|   REQUISITOS DE EMAIL    |");
-            mvprintw(3, COLS - 45, "+==========================+");
+            mvprintw(1, COLS - 29, "+==========================+");
+            mvprintw(2, COLS - 29, "|   REQUISITOS DE EMAIL    |");
+            mvprintw(3, COLS - 29, "+==========================+");
             attroff(COLOR_PAIR(6) | A_BOLD);
             attron(COLOR_PAIR(6));
-            mvprintw(4, COLS - 45, "| > 1 arroba (@)           |");
-            mvprintw(5, COLS - 45, "| > Al menos 1 punto (.)   |");
-            mvprintw(6, COLS - 45, "|                          |");
-            mvprintw(7, COLS - 45, "| Ejemplo:                 |");
-            mvprintw(8, COLS - 45, "| usuario@correo.com       |");
+            mvprintw(4, COLS - 29, "| > 1 arroba (@)           |");
+            mvprintw(5, COLS - 29, "| > Al menos 1 punto (.)   |");
+            mvprintw(6, COLS - 29, "|                          |");
+            mvprintw(7, COLS - 29, "| Ejemplo:                 |");
+            mvprintw(8, COLS - 29, "| usuario@correo.com       |");
             attroff(COLOR_PAIR(6));
             attron(COLOR_PAIR(6) | A_BOLD);
-            mvprintw(9, COLS - 45, "+==========================+");
+            mvprintw(9, COLS - 29, "+==========================+");
             attroff(COLOR_PAIR(6) | A_BOLD);
             refresh();
-            
+
             // Leer email
             ui_read_input(12, 12, mail, MAX_CHAIN_SIZE, 0);
             if(strlen(mail) == 0) return;
-            
+
             if(validar_email(mail) != 0) {
                 strcpy(mensaje_error, "El correo es invalido");
-                error_encontrado = 1;
+
+                ui_clear_screen();
+                
+                ui_print_colored(LINES/2 - 1, (COLS-strlen(mensaje_error))/2, mensaje_error, 3);
+
+                // Mensaje de reintento
+                mvprintw(LINES/2 + 1, (COLS-strlen("¿Intentar otra vez?"))/2, "¿Intentar otra vez?");
+
+                int centro_x = (COLS - 32) / 2; // Centrado para dos botones de 12 caracteres con separación de 20
+                int boton_y = LINES/2 + 3;
+                int boton_ancho = 12;
+                int boton_alto = 3;
+
+                int seleccion = 0; // 0 para Sí, 1 para No
+                int salir_seleccion = 0;
+
+                while(!salir_seleccion) {
+                    // Dibujar botones usando la función centralizada
+                    dibujar_botones_si_no(centro_x, boton_y, seleccion, boton_ancho, boton_alto);
+
+                    ui_print_footer("Use flechas para navegar y Enter para seleccionar");
+                    refresh();
+
+                    int tecla = getch();
+                    if(tecla == KEY_LEFT || tecla == KEY_RIGHT) {
+                        seleccion = 1 - seleccion; // Alternar entre 0 y 1
+                    } else if(tecla == 10) { // Enter
+                        if(seleccion == 0) { // Sí
+                            salir_seleccion = 1;
+                            // Volver al inicio del bucle para intentar de nuevo
+                        } else { // No
+                            intentar_nuevamente = 0;
+                            salir_seleccion = 1;
+                        }
+                    } else if(tecla == 27) { // ESC
+                        intentar_nuevamente = 0;
+                        salir_seleccion = 1;
+                    }
+                }
+                continue; // Volver al inicio del bucle para intentar de nuevo
             }
         }
-        
+
         if(!error_encontrado) {
             // Limpiar requisitos anteriores y mostrar requisitos de teléfono
             for(int i = 1; i <= 9; i++) {
-                move(i, COLS - 45);
+                move(i, COLS - 29);
                 clrtoeol();
             }
-            
+
             attron(COLOR_PAIR(6) | A_BOLD);
-            mvprintw(1, COLS - 45, "+==========================+");
-            mvprintw(2, COLS - 45, "|  REQUISITOS DE TELEFONO  |");
-            mvprintw(3, COLS - 45, "+==========================+");
+            mvprintw(1, COLS - 29, "+==========================+");
+            mvprintw(2, COLS - 29, "|  REQUISITOS DE TELEFONO  |");
+            mvprintw(3, COLS - 29, "+==========================+");
             attroff(COLOR_PAIR(6) | A_BOLD);
             attron(COLOR_PAIR(6));
-            mvprintw(4, COLS - 45, "| > Minimo 8 digitos       |");
-            mvprintw(5, COLS - 45, "| > Solo numeros (0-9)     |");
-            mvprintw(6, COLS - 45, "|                          |");
-            mvprintw(7, COLS - 45, "| Ejemplo:                 |");
-            mvprintw(8, COLS - 45, "| 5512345678               |");
+            mvprintw(4, COLS - 29, "| > Minimo 8 digitos       |");
+            mvprintw(5, COLS - 29, "| > Solo numeros (0-9)     |");
+            mvprintw(6, COLS - 29, "|                          |");
+            mvprintw(7, COLS - 29, "| Ejemplo:                 |");
+            mvprintw(8, COLS - 29, "| 5512345678               |");
             attroff(COLOR_PAIR(6));
             attron(COLOR_PAIR(6) | A_BOLD);
-            mvprintw(9, COLS - 45, "+==========================+");
+            mvprintw(9, COLS - 29, "+==========================+");
             attroff(COLOR_PAIR(6) | A_BOLD);
             refresh();
-            
+
             // Leer teléfono
             ui_read_input(14, 15, telf, MAX_CHAIN_SIZE, 0);
             if(strlen(telf) == 0) return;
-            
+
             if(validar_telefono(telf) != 0) {
                 strcpy(mensaje_error, "El telefono es invalido");
-                error_encontrado = 3;
+
+                ui_clear_screen();
+                
+                ui_print_colored(LINES/2 - 1, (COLS-strlen(mensaje_error))/2, mensaje_error, 3);
+
+                // Mensaje de reintento
+                mvprintw(LINES/2 + 2, (COLS-strlen("¿Intentar otra vez?"))/2, "¿Intentar otra vez?");
+
+                int centro_x = (COLS - 32) / 2; // Centrado para dos botones de 12 caracteres con separación de 20
+                int boton_y = LINES/2 + 4;
+                int boton_ancho = 12;
+                int boton_alto = 3;
+
+                int seleccion = 0; // 0 para Sí, 1 para No
+                int salir_seleccion = 0;
+
+                while(!salir_seleccion) {
+                    // Dibujar botones usando la función centralizada
+                    dibujar_botones_si_no(centro_x, boton_y, seleccion, boton_ancho, boton_alto);
+
+                    ui_print_footer("Use flechas para navegar y Enter para seleccionar");
+                    refresh();
+
+                    int tecla = getch();
+                    if(tecla == KEY_LEFT || tecla == KEY_RIGHT) {
+                        seleccion = 1 - seleccion; // Alternar entre 0 y 1
+                    } else if(tecla == 10) { // Enter
+                        if(seleccion == 0) { // Sí
+                            salir_seleccion = 1;
+                            // Volver al inicio del bucle para intentar de nuevo
+                        } else { // No
+                            intentar_nuevamente = 0;
+                            salir_seleccion = 1;
+                        }
+                    } else if(tecla == 27) { // ESC
+                        intentar_nuevamente = 0;
+                        salir_seleccion = 1;
+                    }
+                }
+                continue; // Volver al inicio del bucle para intentar de nuevo
             }
         }
         
         if(!error_encontrado) {
+            // Limpiar requisitos anteriores y mostrar requisitos de tipo
+            for(int i = 1; i <= 9; i++) {
+                move(i, COLS - 29);
+                clrtoeol();
+            }
+
+            attron(COLOR_PAIR(6) | A_BOLD);
+            mvprintw(1, COLS - 29, "+==========================+");
+            mvprintw(2, COLS - 29, "|     TIPO DE USUARIO      |");
+            mvprintw(3, COLS - 29, "+==========================+");
+            attroff(COLOR_PAIR(6) | A_BOLD);
+            attron(COLOR_PAIR(6));
+            mvprintw(4, COLS - 29, "| > M: Mesero              |");
+            mvprintw(5, COLS - 29, "| > C: Cocina              |");
+            mvprintw(6, COLS - 29, "|                          |");
+            mvprintw(7, COLS - 29, "| Ingrese M o C            |");
+            mvprintw(8, COLS - 29, "|                          |");
+            attroff(COLOR_PAIR(6));
+            attron(COLOR_PAIR(6) | A_BOLD);
+            mvprintw(9, COLS - 29, "+==========================+");
+            attroff(COLOR_PAIR(6) | A_BOLD);
+            refresh();
+
             // Leer tipo
-            int opcion = ui_read_char_option(16, 32, "CM");
-            if(opcion == 27) return;
-            tipo = (opcion == 'C') ? 1 : 0;
-            
+            char tipo_char;
+            tipo_char = mvwgetch(stdscr, 16,11);
+            tipo = (tipo_char == 'C' || tipo_char == 'c') ? 1 : 0;
+
             // Preparar petición
             Peticion pet;
             Respuesta resp;
             memset(&pet, 0, sizeof(Peticion));
             memset(&resp, 0, sizeof(Respuesta));
-            
+
             pet.operacion = OP_CREAR_USUARIO;
             strncpy(pet.name, name, MAX_CHAIN_SIZE-1);
             strncpy(pet.user, user, MAX_CHAIN_SIZE-1);
@@ -429,13 +570,13 @@ void crear_usuario() {
             strncpy(pet.mail, mail, MAX_CHAIN_SIZE-1);
             strncpy(pet.telf, telf, MAX_CHAIN_SIZE-1);
             pet.tipo = tipo;
-            
+
             // Enviar al servidor
             if (enviar_peticion(&pet, &resp) != 0) {
                 ui_show_error("Error de comunicacion con el servidor");
                 return;
             }
-            
+
             if (resp.codigo == RESP_OK) {
                 ui_show_success(resp.mensaje);
                 return;
@@ -448,24 +589,50 @@ void crear_usuario() {
         // Si hubo error, mostrar y preguntar si reintentar
         if(error_encontrado) {
             ui_clear_screen();
-            ui_print_colored(LINES/2 - 1, (COLS-strlen(mensaje_error))/2, mensaje_error, 3);
-            
+            ui_print_colored(LINES/2 - 3, (COLS-strlen(mensaje_error))/2, mensaje_error, 3);
+
             if(error_encontrado == 2) {
-                mvprintw(LINES/2, (COLS-90)/2, 
+                mvprintw(LINES/2 - 1, (COLS-90)/2,
                         "Debe tener: 1 mayuscula, 1 minuscula, 1 numero, 2 simbolos(*/_-+.), min 8 caracteres");
             }
             else if(error_encontrado == 3) {
-                mvprintw(LINES/2, (COLS-40)/2, "Solo numeros, minimo 8 digitos");
+                mvprintw(LINES/2 - 1, (COLS-40)/2, "Solo numeros, minimo 8 digitos");
             }
-            
-            mvprintw(LINES/2 + 2, (COLS-40)/2, "Desea intentar nuevamente? (S/N)");
-            ui_print_footer("Presione S para reintentar o N para volver al menu");
-            refresh();
-            
-            int respuesta = ui_read_char_option(LINES/2 + 3, COLS/2, "SN");
-            
-            if(respuesta == 'N' || respuesta == 27) {
-                intentar_nuevamente = 0;
+
+            // Mensaje de reintento
+            mvprintw(LINES/2 + 2, (COLS-strlen("¿Intentar otra vez?"))/2, "¿Intentar otra vez?");
+
+            // Dibujar botones de selección Sí/No
+            int centro_x = (COLS - 40) / 2; // Centrado para dos botones de 12 caracteres con espacio
+            int boton_y = LINES/2 + 4;
+            int boton_ancho = 12;
+            int boton_alto = 3;
+
+            int seleccion = 0; // 0 para Sí, 1 para No
+            int salir_seleccion = 0;
+
+            while(!salir_seleccion) {
+                // Dibujar botones usando la función centralizada
+                dibujar_botones_si_no(centro_x, boton_y, seleccion, boton_ancho, boton_alto);
+
+                ui_print_footer("Use flechas para navegar y Enter para seleccionar");
+                refresh();
+
+                int tecla = getch();
+                if(tecla == KEY_LEFT || tecla == KEY_RIGHT) {
+                    seleccion = 1 - seleccion; // Alternar entre 0 y 1
+                } else if(tecla == 10) { // Enter
+                    if(seleccion == 0) { // Sí
+                        salir_seleccion = 1;
+                        // No es necesario hacer nada más aquí, simplemente continuar el bucle
+                    } else { // No
+                        intentar_nuevamente = 0;
+                        salir_seleccion = 1;
+                    }
+                } else if(tecla == 27) { // ESC
+                    intentar_nuevamente = 0;
+                    salir_seleccion = 1;
+                }
             }
         }
     }
@@ -474,45 +641,63 @@ void crear_usuario() {
 // Recuperar contraseña
 void recuperar_password() {
     char user[MAX_CHAIN_SIZE];
+    char token[100];
     char new_pass[MAX_CHAIN_SIZE];
-    
+
     ui_clear_screen();
-    ui_print_title("Recuperar Contrasena");
-    
+    ui_print_title("Recuperar Contrasena - Paso 1");
+
     attron(COLOR_PAIR(10) | A_BOLD);
     mvprintw(6, 5, "Ingrese su usuario:");
     attroff(COLOR_PAIR(10) | A_BOLD);
     ui_print_footer("Presione ESC para cancelar");
     refresh();
-    
+
     ui_read_input(6, 25, user, MAX_CHAIN_SIZE, 0);
     if(strlen(user) == 0) return;
-    
+
     // Verificar si existe
     Peticion pet_ver;
     Respuesta resp_ver;
     memset(&pet_ver, 0, sizeof(Peticion));
     memset(&resp_ver, 0, sizeof(Respuesta));
-    
+
     pet_ver.operacion = OP_VERIFICAR_USUARIO;
     strncpy(pet_ver.user, user, MAX_CHAIN_SIZE-1);
-    
+
     if (enviar_peticion(&pet_ver, &resp_ver) == 0 && resp_ver.codigo != RESP_USUARIO_EXISTE) {
         ui_show_error("Usuario no encontrado");
         return;
     }
-    
+
     ui_clear_screen();
-    ui_print_title("Recuperar Contrasena");
-    
+    ui_print_title("Recuperar Contrasena - Paso 1");
+
     attron(COLOR_PAIR(9) | A_BOLD);
     mvprintw(6, 5, "> Usuario encontrado!");
+    mvprintw(8, 5, "> Se le ha enviado un token de recuperacion.");
+    mvprintw(10, 5, "> Por favor revise su metodo de notificacion.");
     attroff(COLOR_PAIR(9) | A_BOLD);
-    
-    attron(COLOR_PAIR(10));
+
+    // Generar token de recuperación
+    if(generar_token_recuperacion(user) != 0) {
+        ui_show_error("Error al generar token de recuperacion");
+        return;
+    }
+
+    ui_print_footer("Presione cualquier tecla para continuar...");
+    refresh();
+    ui_wait_key();
+
+    // Segundo paso: Ingresar token y nueva contraseña
+    ui_clear_screen();
+    ui_print_title("Recuperar Contrasena - Paso 2");
+
+    attron(COLOR_PAIR(10) | A_BOLD);
+    mvprintw(6, 5, "Ingrese el token recibido:");
     mvprintw(8, 5, "Nueva contrasena:");
-    attroff(COLOR_PAIR(10));
-    
+    attroff(COLOR_PAIR(10) | A_BOLD);
+
     // Mostrar requisitos
     attron(COLOR_PAIR(6) | A_BOLD);
     mvprintw(1, COLS - 45, "+==========================+");
@@ -529,45 +714,57 @@ void recuperar_password() {
     attron(COLOR_PAIR(6) | A_BOLD);
     mvprintw(9, COLS - 45, "+==========================+");
     attroff(COLOR_PAIR(6) | A_BOLD);
-    
+
     ui_print_footer("Presione ESC para cancelar");
     refresh();
-    
+
+    ui_read_input(6, 28, token, sizeof(token), 0);
+    if(strlen(token) == 0) return;
+
     ui_read_input(8, 24, new_pass, MAX_CHAIN_SIZE, 1);
     if(strlen(new_pass) == 0) return;
-    
+
     if(validar_password(new_pass) != 0) {
         ui_clear_screen();
         ui_print_colored(LINES/2, (COLS-30)/2, "La contrasena es invalida", 3);
-        mvprintw(LINES/2 + 1, (COLS-90)/2, 
+        mvprintw(LINES/2 + 1, (COLS-90)/2,
                 "Debe tener: 1 mayuscula, 1 minuscula, 1 numero, 2 simbolos(*/_-+.), min 8 caracteres");
         ui_print_footer("Presione cualquier tecla para continuar...");
         refresh();
         ui_wait_key();
         return;
     }
-    
-    // Preparar petición
-    Peticion pet;
-    Respuesta resp;
-    memset(&pet, 0, sizeof(Peticion));
-    memset(&resp, 0, sizeof(Respuesta));
-    
-    pet.operacion = OP_RECUPERAR_PASS;
-    strncpy(pet.user, user, MAX_CHAIN_SIZE-1);
-    strncpy(pet.pass, new_pass, MAX_CHAIN_SIZE-1);
-    
-    // Enviar al servidor
-    if (enviar_peticion(&pet, &resp) != 0) {
-        ui_show_error("Error de comunicacion con el servidor");
+
+    // Cambiar contraseña usando token
+    int resultado = cambiar_password_por_token(user, token, new_pass);
+    if(resultado != 0) {
+        switch(resultado) {
+            case -1:
+                ui_show_error("Token no encontrado");
+                break;
+            case -2:
+                ui_show_error("Token ya fue usado");
+                break;
+            case -3:
+                ui_show_error("Token expirado");
+                break;
+            case -4:
+                ui_show_error("Nueva contraseña invalida");
+                break;
+            case -5:
+                ui_show_error("Error al cambiar la contraseña");
+                break;
+            case -6:
+                ui_show_error("Error al marcar token como usado");
+                break;
+            default:
+                ui_show_error("Error desconocido al recuperar contraseña");
+                break;
+        }
         return;
     }
-    
-    if (resp.codigo == RESP_OK) {
-        ui_show_success(resp.mensaje);
-    } else {
-        ui_show_error(resp.mensaje);
-    }
+
+    ui_show_success("Contraseña cambiada exitosamente!");
 }
 
 int main() {

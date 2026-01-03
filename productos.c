@@ -44,6 +44,44 @@ void productos_cargar() {
 
     fclose(archivo);
     printf("Productos cargados: %d\n", total_productos);
+
+    // Cargar también las relaciones producto-ingrediente
+    archivo = fopen("producto_ingrediente", "r");
+    if(archivo != NULL) {
+        char linea_rel[512];
+
+        while(fgets(linea_rel, sizeof(linea_rel), archivo)) {
+            if(linea_rel[0] == '#') continue;
+            if(strlen(linea_rel) < 5) continue;
+
+            linea_rel[strcspn(linea_rel, "\n")] = 0;
+
+            char *token = strtok(linea_rel, "|");
+            int id_producto = atoi(token);
+
+            token = strtok(NULL, "|");
+            int id_ingrediente = atoi(token);
+
+            token = strtok(NULL, "|");
+            int cantidad_necesaria = atoi(token);
+
+            // Encontrar el producto y agregar el ingrediente
+            for(int i = 0; i < total_productos; i++) {
+                if(productos[i].id == id_producto) {
+                    // Verificar que no exceda el máximo de ingredientes
+                    if(productos[i].num_ingredientes < MAX_INGREDIENTES_PRODUCTO) {
+                        productos[i].ingredientes[productos[i].num_ingredientes].id = productos[i].num_ingredientes + 1;
+                        productos[i].ingredientes[productos[i].num_ingredientes].id_ingrediente = id_ingrediente;
+                        productos[i].ingredientes[productos[i].num_ingredientes].cantidad_necesaria = cantidad_necesaria;
+                        productos[i].num_ingredientes++;
+                    }
+                    break;
+                }
+            }
+        }
+
+        fclose(archivo);
+    }
 }
 
 void productos_guardar() {

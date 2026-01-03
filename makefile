@@ -14,6 +14,7 @@ OBJ_INVENTARIO = inventario.o
 OBJ_UI = ui.o
 OBJ_LOG = logger.o
 OBJ_ADMIN = interfaz_admin.o
+OBJ_RECUPERAR_PASS = recuperar_password.o
 
 # Archivos memoria y semáforos
 MEM = servidor_usuarios_mem
@@ -38,7 +39,7 @@ $(SERVIDOR): $(SERVIDOR_OBJ) $(OBJ_USUARIO) $(OBJ_PRODUCTOS) $(OBJ_PEDIDOS) $(OB
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS_PTHREAD) $(LIBS_CRYPTO)
 
 # Compilar cliente
-$(CLIENTE): $(CLIENTE_OBJ) $(OBJ_UI) $(OBJ_USUARIO) $(OBJ_PRODUCTOS) $(OBJ_PEDIDOS) $(OBJ_INVENTARIO)
+$(CLIENTE): $(CLIENTE_OBJ) $(OBJ_UI) $(OBJ_USUARIO) $(OBJ_PRODUCTOS) $(OBJ_PEDIDOS) $(OBJ_INVENTARIO) $(OBJ_LOG) $(OBJ_RECUPERAR_PASS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS_NCURSES) $(LIBS_CRYPTO)
 
 # Crear archivos de memoria compartida y semáforos
@@ -73,6 +74,9 @@ logger.o: logger.c logger.h
 
 inventario.o: inventario.c inventario.h
 	$(CC) $(CFLAGS) -c inventario.c
+
+recuperar_password.o: recuperar_password.c recuperar_password.h
+	$(CC) $(CFLAGS) -c recuperar_password.c
 
 # Limpiar archivos compilados
 clean:
