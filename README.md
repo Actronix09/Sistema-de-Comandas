@@ -2,7 +2,7 @@
 
 Sistema cliente-servidor para la gestión de comandas en restaurantes, desarrollado en C con comunicación mediante memoria compartida y semáforos. Implementa interfaces separadas para meseros, cocina y administración con autenticación de usuarios.
 
-## 📋 Tabla de Contenidos
+## Tabla de Contenidos
 
 - [Características](#características)
 - [Arquitectura](#arquitectura)
@@ -17,7 +17,7 @@ Sistema cliente-servidor para la gestión de comandas en restaurantes, desarroll
 
 ---
 
-## ✨ Características
+## Características
 
 - **Autenticación de usuarios** con encriptación MD5
 - **Interfaz triple**: Meseros, Cocina y Administración con funcionalidades específicas
@@ -32,7 +32,7 @@ Sistema cliente-servidor para la gestión de comandas en restaurantes, desarroll
 
 ---
 
-## 🏗️ Arquitectura
+## Arquitectura
 
 ### Modelo Cliente-Servidor
 
@@ -474,7 +474,7 @@ El cliente esperará la conexión con el servidor y mostrará el menú principal
 
 ---
 
-## 🔌 Protocolo de Comunicación
+## Protocolo de Comunicación
 
 ### Operaciones Soportadas
 
@@ -538,7 +538,7 @@ typedef struct {
 
 ---
 
-## 📊 Sistema de Logging
+## Sistema de Logging
 
 ### Archivos de Log
 
@@ -567,7 +567,7 @@ Registra todos los eventos de pedidos:
 
 ---
 
-## 🔧 Configuración Avanzada
+## Configuración Avanzada
 
 ### Límites del Sistema
 
