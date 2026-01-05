@@ -65,6 +65,7 @@ servidor_usuarios_sem
 usuarios
 pedidos
 inventario
+producto_ingrediente
 *.log
 
 /.vscode

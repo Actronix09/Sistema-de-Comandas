@@ -29,6 +29,8 @@ Sistema cliente-servidor para la gestión de comandas en restaurantes, desarroll
 - **Soporte multi-cliente** (hasta 10 clientes simultáneos)
 - **Gestión de inventario** con control de ingredientes
 - **Gestión de usuarios** con roles y permisos
+- **Recuperación de contraseña** con tokens
+- **Gestión completa de productos e ingredientes** desde la interfaz de administrador
 
 ---
 
@@ -112,14 +114,11 @@ SistemasOperativosTrabajoFinalDEV/
 ├── productos.c / productos.h  # Catálogo de productos
 ├── pedidos.c / pedidos.h      # Gestión de pedidos
 ├── inventario.c / inventario.h # Gestión de inventario y stock
-│
+├── interfaces.c / interfaces.h # Funciones comunes de las interfaces
 ├── ui.c / ui.h                # Interfaz de usuario (ncurses)
-├── interfaz_mesero.c / interfaz_mesero.h    # Interfaz específica de meseros
-├── interfaz_cocina.c / interfaz_cocina.h    # Interfaz específica de cocina
-├── interfaz_admin.c / interfaz_admin.h      # Interfaz específica de administración
-│
 ├── logger.c / logger.h        # Sistema de logging asíncrono
 ├── sesion.c / sesion.h        # Gestión de sesiones
+├── recuperar_password.c / recuperar_password.h # Recuperación de contraseña
 │
 ├── protocolo.h                # Definiciones del protocolo de comunicación
 │
@@ -127,6 +126,8 @@ SistemasOperativosTrabajoFinalDEV/
 ├── productos                  # Archivo de datos de productos
 ├── usuarios                   # Archivo de datos de usuarios (generado)
 ├── pedidos                    # Archivo de datos de pedidos (generado)
+├── inventario                 # Archivo de datos de ingredientes
+├── producto_ingrediente       # Archivo de relaciones producto-ingredientes
 │
 ├── autenticacion.log          # Log de eventos de autenticación (generado)
 ├── cocina.log                 # Log de eventos de cocina (generado)
@@ -156,6 +157,11 @@ make clean
 make cleanall
 ```
 
+#### Crear datos iniciales
+```bash
+make data
+```
+
 #### Ejecutar servidor
 ```bash
 make run-servidor
@@ -166,16 +172,21 @@ make run-servidor
 make run-cliente
 ```
 
+#### Ejecutar todo el proceso (limpiar, compilar, crear datos, correr servidor)
+```bash
+make fresh
+```
+
 ### Compilación Manual
 
 #### Servidor
 ```bash
-gcc -Wall -g -o Servidor Servidor.c usuario.c productos.c pedidos.c logger.c -lpthread -lssl -lcrypto
+gcc -Wall -g -o Servidor Servidor.c usuario.c productos.c pedidos.c logger.c inventario.c -lpthread -lssl -lcrypto
 ```
 
 #### Cliente
 ```bash
-gcc -Wall -g -o Cliente Cliente.c usuario.c ui.c interfaz_mesero.c interfaz_cocina.c interfaz_admin.c productos.c pedidos.c inventario.c usuarios.c -lncurses -lssl -lcrypto
+gcc -Wall -g -o Cliente Cliente.c usuario.c ui.c interfaces.c productos.c pedidos.c inventario.c logger.c recuperar_password.c -lncurses -lssl -lcrypto
 ```
 
 ---
@@ -199,6 +210,7 @@ PID del Servidor: 12345
 Sistema de usuarios inicializado
 Usuarios registrados: 0
 Productos cargados: 10
+Ingredientes cargados: 5
 Pedidos cargados: 0
 Sistema de logging inicializado
 
@@ -260,6 +272,7 @@ El cliente esperará la conexión con el servidor y mostrará el menú principal
 - Crear hilos para atender cada cliente
 - Procesar peticiones (login, crear usuario, pedidos, etc.)
 - Coordinar sistema de logging
+- Gestionar inventario y productos
 
 **Funciones clave:**
 - `Crea_semaforo()` - Crea semáforos con valor inicial
@@ -275,7 +288,7 @@ El cliente esperará la conexión con el servidor y mostrará el menú principal
 - Conectar al servidor mediante memoria compartida
 - Obtener slot asignado por el servidor
 - Mostrar menú de autenticación
-- Lanzar interfaz apropiada (mesero/cocina) según tipo de usuario
+- Lanzar interfaz apropiada (mesero/cocina/admin) según tipo de usuario
 - Enviar peticiones y recibir respuestas
 
 **Funciones clave:**
@@ -304,6 +317,7 @@ El cliente esperará la conexión con el servidor y mostrará el menú principal
 - `validar_password()` - Validar requisitos de seguridad
 - `validar_email()` - Validar formato de correo
 - `validar_telefono()` - Validar formato de teléfono
+- `usuario_eliminar_por_nombre()` - Eliminar usuario por nombre
 
 **Requisitos de contraseña:**
 - Mínimo 8 caracteres
@@ -317,6 +331,7 @@ El cliente esperará la conexión con el servidor y mostrará el menú principal
 **Responsabilidades:**
 - Gestión de catálogo de productos
 - Persistencia en archivo
+- Gestión de relaciones producto-ingredientes
 
 **Funciones clave:**
 - `productos_init()` / `productos_cargar()` / `productos_guardar()`
@@ -324,26 +339,45 @@ El cliente esperará la conexión con el servidor y mostrará el menú principal
 - `productos_get_by_index()` - Acceso por índice
 - `productos_get_by_id()` - Búsqueda por ID
 - `productos_agregar()` - Añadir nuevo producto
+- `producto_agregar_ingrediente()` - Vincular producto con ingrediente
+- `producto_verificar_disponibilidad()` - Verificar disponibilidad de producto
+- `producto_eliminar()` - Eliminar un producto
 
-### pedidos.c
+### inventario.c
 
 **Responsabilidades:**
-- Gestión de pedidos (CRUD)
-- Asignación de IDs únicos
-- Control de estados de pedidos
-- Persistencia en archivo con timestamp
+- Gestión de ingredientes y stock
+- Vinculación con productos
+- Control de disponibilidad de ingredientes
 
 **Funciones clave:**
-- `pedidos_init()` / `pedidos_cargar()` / `pedidos_guardar()`
-- `pedidos_crear()` - Crear nuevo pedido con items
-- `pedidos_cambiar_estado()` - Actualizar estado del pedido
-- `pedidos_get_by_id()` - Búsqueda por ID
-- `pedidos_contar_por_estado()` - Estadísticas
+- `inventario_init()` / `inventario_cargar()` / `inventario_guardar()`
+- `inventario_get_total()` - Cantidad de ingredientes
+- `inventario_get_by_index()` - Acceso por índice
+- `inventario_get_by_id()` - Búsqueda por ID
+- `inventario_agregar()` - Añadir nuevo ingrediente
+- `inventario_modificar_cantidad()` - Modificar stock de ingrediente
+- `inventario_eliminar_ingrediente()` - Eliminar ingrediente
+- `producto_vincular_ingrediente()` - Vincular producto con ingrediente
+- `inventario_actualizar_stock()` - Actualizar stock tras crear pedido
 
-**Estados de pedido:**
-- `ESTADO_NO_EMPEZADO` (0) - Pendiente
-- `ESTADO_EN_PROGRESO` (1) - En preparación
-- `ESTADO_LISTO` (2) - Completado
+### interfaces.c
+
+**Responsabilidades:**
+- Funciones comunes de las interfaces de usuario (mesero, cocina, admin)
+- Funciones para dibujar componentes de UI ncurses
+- Gestión de la interfaz de administración
+
+**Funciones clave:**
+- `dibujar_botones_si_no()` - Dibujar botones de selección
+- `dibujar_botones_confirmacion()` - Dibujar botones de confirmación
+- `dibujar_recuadro_usuario_horizontal()` - Dibujar tarjeta de usuario
+- `dibujar_recuadro_producto_admin()` - Dibujar tarjeta de producto para admin
+- `dibujar_recuadro_ingrediente_admin()` - Dibujar tarjeta de ingrediente para admin
+- `mostrar_menu_usuarios()` - Interfaz de gestión de usuarios
+- `mostrar_menu_productos()` - Interfaz de gestión de productos
+- `mostrar_menu_ingredientes()` - Interfaz de gestión de ingredientes
+- `interfaz_admin_ejecutar()` - Punto de entrada de la interfaz de administrador
 
 ### ui.c
 
@@ -370,76 +404,6 @@ El cliente esperará la conexión con el servidor y mostrará el menú principal
 - Par 6: Blanco/Magenta - Requisitos
 - Par 9: Verde/Blanco - Confirmaciones
 - Par 10: Blanco/Negro - Texto general
-
-### interfaz_mesero.c
-
-**Responsabilidades:**
-- Interfaz completa para personal de meseros
-- Tomar órdenes con selector visual de productos
-- Ver estado de órdenes propias
-- Layout dinámico adaptable al tamaño de terminal
-
-**Funciones clave:**
-- `interfaz_mesero_ejecutar()` - Loop principal de interfaz
-- `enviar_peticion_mesero()` - Comunicación con servidor
-- `calcular_layout()` - Cálculo dinámico de grid de productos
-- `dibujar_recuadro_producto()` - Renderizar producto con detalles
-
-**Navegación:**
-- Flechas: Moverse entre productos
-- ENTER: Agregar producto (+1)
-- `-`: Quitar producto (-1)
-- `O`: Confirmar y crear orden
-- ESC: Cancelar
-
-### interfaz_cocina.c
-
-**Responsabilidades:**
-- Interfaz completa para personal de cocina
-- Visualización de pedidos pendientes y en progreso
-- Cambio de estados de pedidos
-- Actualización automática de vista
-
-**Funciones clave:**
-- `interfaz_cocina_ejecutar()` - Loop principal de interfaz
-- `enviar_peticion_cocina()` - Comunicación con servidor
-- `dibujar_recuadro_pedido_horizontal()` - Renderizar pedido completo
-
-**Navegación:**
-- Flechas ARRIBA/ABAJO: Navegar entre pedidos
-- `1`: Marcar como "En Progreso"
-- `2`: Marcar como "Listo"
-- `R`: Actualizar vista
-- ESC: Salir
-
-### interfaz_admin.c
-
-**Responsabilidades:**
-- Interfaz completa para administradores
-- Gestión de usuarios (crear, modificar, eliminar)
-- Gestión de productos (crear, modificar, eliminar)
-- Gestión de inventario (ingredientes y stock)
-- Visualización de reportes y estadísticas
-- Control de todo el sistema
-
-**Funciones clave:**
-- `interfaz_admin_ejecutar()` - Loop principal de interfaz
-- `enviar_peticion_admin()` - Comunicación con servidor
-- `menu_gestion_usuarios()` - Submenú de gestión de usuarios
-- `menu_gestion_productos()` - Submenú de gestión de productos
-- `menu_gestion_inventario()` - Submenú de gestión de inventario
-- `dibujar_tabla_usuarios()` - Mostrar tabla de usuarios
-- `dibujar_tabla_productos()` - Mostrar tabla de productos
-- `dibujar_tabla_ingr()` - Mostrar tabla de ingredientes
-
-**Navegación:**
-- Flechas: Navegar entre opciones y elementos
-- ENTER: Seleccionar opción o confirmar
-- 'C': Crear nuevo elemento
-- 'E': Editar elemento seleccionado
-- 'D': Eliminar elemento seleccionado
-- 'V': Volver al menú anterior
-- ESC: Salir de la interfaz
 
 ### logger.c
 
@@ -484,13 +448,29 @@ El cliente esperará la conexión con el servidor y mostrará el menú principal
 | `OP_CREAR_USUARIO` | Crear usuario | Registrar nuevo usuario |
 | `OP_RECUPERAR_PASS` | Recuperar contraseña | Cambiar contraseña de usuario |
 | `OP_VERIFICAR_USUARIO` | Verificar usuario | Comprobar si usuario existe |
+| `OP_LOGOUT` | Cerrar sesión | Desconectar usuario |
 | `OP_LISTAR_PRODUCTOS` | Listar productos | Obtener catálogo completo |
 | `OP_CREAR_PEDIDO` | Crear pedido | Registrar nueva orden |
 | `OP_LISTAR_PEDIDOS` | Listar pedidos | Obtener pedidos activos |
 | `OP_CAMBIAR_ESTADO_PEDIDO` | Cambiar estado | Actualizar estado de pedido |
-| `OP_GESTION_USUARIOS` | Gestionar usuarios | Listar, crear, modificar o eliminar usuarios (admin) |
-| `OP_GESTION_PRODUCTOS` | Gestionar productos | Listar, crear, modificar o eliminar productos (admin) |
-| `OP_GESTION_INVENTARIO` | Gestionar inventario | Listar, crear, modificar o eliminar ingredientes (admin) |
+| `OP_LISTAR_USUARIOS` | Listar usuarios | Obtener lista de usuarios |
+| `OP_MODIFICAR_USUARIO` | Modificar usuario | Actualizar datos de usuario |
+| `OP_ELIMINAR_USUARIO` | Eliminar usuario | Borrar usuario del sistema |
+| `OP_OBTENER_USUARIO` | Obtener usuario | Recuperar datos de usuario |
+| `OP_MODIFICAR_PRODUCTO` | Modificar producto | Actualizar datos de producto |
+| `OP_ELIMINAR_PRODUCTO` | Eliminar producto | Borrar producto del sistema |
+| `OP_CREAR_PRODUCTO` | Crear producto | Registrar nuevo producto |
+| `OP_OBTENER_PRODUCTO` | Obtener producto | Recuperar datos de producto |
+| `OP_LISTAR_INGREDIENTES` | Listar ingredientes | Obtener lista de ingredientes |
+| `OP_CREAR_INGREDIENTE` | Crear ingrediente | Registrar nuevo ingrediente |
+| `OP_MODIFICAR_INGREDIENTE` | Modificar ingrediente | Actualizar stock de ingrediente |
+| `OP_ELIMINAR_INGREDIENTE` | Eliminar ingrediente | Borrar ingrediente del sistema |
+| `OP_OBTENER_INGREDIENTE` | Obtener ingrediente | Recuperar datos de ingrediente |
+| `OP_ELIMINAR_PEDIDO` | Eliminar pedido | Borrar pedido del sistema |
+| `OP_OBTENER_PEDIDO` | Obtener pedido | Recuperar datos de pedido |
+| `OP_VERIFICAR_DISPONIBILIDAD_PRODUCTO` | Verificar disponibilidad | Comprobar si producto está disponible |
+| `OP_LISTAR_LOGS` | Listar logs | Obtener lista de archivos de log |
+| `OP_VER_LOG` | Ver log | Leer contenido de archivo de log |
 
 ### Códigos de Respuesta
 
@@ -498,9 +478,10 @@ El cliente esperará la conexión con el servidor y mostrará el menú principal
 |--------|-------------|
 | `RESP_OK` | Operación exitosa |
 | `RESP_ERROR` | Error general |
-| `RESP_CREDENCIALES_INVALIDAS` | Usuario/contraseña incorrectos |
 | `RESP_USUARIO_EXISTE` | Usuario ya registrado |
 | `RESP_USUARIO_NO_EXISTE` | Usuario no encontrado |
+| `RESP_CREDENCIALES_INVALIDAS` | Usuario/contraseña incorrectos |
+| `RESP_LIMITE_ALCANZADO` | Límite alcanzado (usuarios/pedidos/productos) |
 | `RESP_VALIDACION_FALLIDA` | Datos no cumplen requisitos |
 
 ### Estructura de Comunicación
@@ -508,31 +489,69 @@ El cliente esperará la conexión con el servidor y mostrará el menú principal
 ```c
 // Petición del cliente
 typedef struct {
-    int operacion;
+    TipoOperacion operacion;
     char user[MAX_CHAIN_SIZE];
     char pass[MAX_CHAIN_SIZE];
     char name[MAX_CHAIN_SIZE];
     char mail[MAX_CHAIN_SIZE];
     char telf[MAX_CHAIN_SIZE];
     int tipo;
-    char mesa[50];
-    ItemPedido items[MAX_ITEMS_PEDIDO];
-    int num_items;
+    int producto_id;
     int pedido_id;
+    int ingrediente_id;
     int nuevo_estado;
+    float precio;
+    char descripcion[200];
+
+    // Para pedidos
+    char mesa[50];
+    ItemPedidoMsg items[MAX_ITEMS_PEDIDO];
+    int num_items;
+    int cantidad;
+
+    // Para ingredientes en productos
+    struct {
+        int id;
+        int cantidad;
+    } ingredientes[20];
+    int num_ingredientes;
+
+    // Para logs
+    char nombre_archivo[100];
 } Peticion;
 
 // Respuesta del servidor
 typedef struct {
-    int codigo;
-    char mensaje[TAM_MENSAJE];
-    int tipo_usuario;
+    CodigoRespuesta codigo;
+    int tipo_usuario;  // 0=Mesero, 1=Cocina, 2=Administrador
     char nombre[MAX_CHAIN_SIZE];
-    int num_productos;
+    char mensaje[TAM_MENSAJE];
+
+    // Para productos
     ProductoMsg productos[MAX_PRODUCTOS_RESPUESTA];
-    int num_pedidos;
+    int num_productos;
+    ProductoMsg producto;
+
+    // Para pedidos
     PedidoMsg pedidos[50];
+    int num_pedidos;
     int pedido_id_creado;
+    PedidoMsg pedido;
+
+    // Para usuarios
+    UsuarioMsg usuarios[100];
+    int num_usuarios;
+    UsuarioMsg usuario;
+
+    // Para ingredientes
+    IngredienteMsg ingredientes[100];
+    int num_ingredientes;
+    IngredienteMsg ingrediente;
+
+    // Para logs
+    char logs[20][100];  // Lista de nombres de archivos de log
+    int num_logs;
+    char contenido_log[5000];  // Contenido del archivo de log solicitado
 } Respuesta;
 ```
 
@@ -581,6 +600,7 @@ En `protocolo.h` y archivos de cabecera:
 #define MAX_ITEMS_PEDIDO 20          // Items por pedido
 #define MAX_LOG_QUEUE 1000           // Buffer de logs
 #define MAX_INGREDIENTES 200         // Ingredientes en inventario
+#define MAX_INGREDIENTES_PRODUCTO 20 // Ingredientes por producto
 ```
 
 ### Archivos de Persistencia
@@ -589,6 +609,7 @@ En `protocolo.h` y archivos de cabecera:
 - `productos` - Catálogo de productos (formato: id|nombre|descripcion|precio)
 - `pedidos` - Histórico de pedidos (formato complejo con items embebidos)
 - `inventario` - Datos de ingredientes y stock (formato: id|nombre|stock|unidad)
+- `producto_ingrediente` - Relaciones producto-ingrediente (formato: id_producto|id_ingrediente|cantidad_necesaria)
 
 ---
 
@@ -615,39 +636,6 @@ fatal error: openssl/evp.h: No such file or directory
 - Ubuntu/Debian: `sudo apt-get install libssl-dev`
 - Fedora/RHEL/CentOS: `sudo dnf install openssl-devel`
 - Arch Linux: `sudo pacman -S openssl`
-
----
-
-## Gestión de Inventario
-
-El sistema incluye una funcionalidad avanzada de gestión de inventario que permite a los administradores:
-
-- **Registrar ingredientes**: Nombre, ID, stock actual y unidad de medida
-- **Actualizar stock**: Ajustar cantidades según abastecimiento
-- **Relacionar productos con ingredientes**: Definir qué ingredientes y cuánta cantidad se necesita para cada producto
-- **Control de stock en tiempo real**: Al crear pedidos, se reducen automáticamente los ingredientes utilizados
-
-### Funcionalidades de Inventario
-
-#### En interfaz de administración:
-1. **Lista de ingredientes**: Visualización de todos los ingredientes con stock actual
-2. **Agregar ingrediente**: Crear nuevos ingredientes con nombre, unidad y stock inicial
-3. **Modificar stock**: Actualizar cantidades disponibles
-4. **Eliminar ingrediente**: Remover ingredientes no utilizados
-5. **Asociar ingredientes a productos**: Definir la receta de cada producto
-6. **Reporte de stock bajo**: Alerta cuando el stock está por debajo del umbral mínimo
-
-#### Control automático:
-- Al crear un pedido, el sistema verifica disponibilidad de ingredientes
-- Si no hay suficiente stock, se impide la creación del pedido
-- Actualización automática de inventario al confirmar pedidos
-- Registro de movimientos de inventario en logs
-
-### Archivo de persistencia
-
-- `inventario` - Almacena la información de ingredientes en formato: `id|nombre|stock|unidad`
-- El sistema carga este archivo al iniciar y lo actualiza periódicamente
-- Los cambios en el inventario son persistentes entre reinicios del sistema
 
 ### El cliente no puede conectarse
 
@@ -689,3 +677,37 @@ reset
 # o
 stty sane
 ```
+
+---
+
+## Gestión de Inventario
+
+El sistema incluye una funcionalidad avanzada de gestión de inventario que permite a los administradores:
+
+- **Registrar ingredientes**: Nombre, ID, stock actual y unidad de medida
+- **Actualizar stock**: Ajustar cantidades según abastecimiento
+- **Relacionar productos con ingredientes**: Definir qué ingredientes y cuánta cantidad se necesita para cada producto
+- **Control de stock en tiempo real**: Al crear pedidos, se reducen automáticamente los ingredientes utilizados
+
+### Funcionalidades de Inventario
+
+#### En interfaz de administración:
+1. **Lista de ingredientes**: Visualización de todos los ingredientes con stock actual
+2. **Agregar ingrediente**: Crear nuevos ingredientes con nombre, unidad y stock inicial
+3. **Modificar stock**: Actualizar cantidades disponibles
+4. **Eliminar ingrediente**: Remover ingredientes no utilizados
+5. **Asociar ingredientes a productos**: Definir la receta de cada producto
+6. **Reporte de stock bajo**: Alerta cuando el stock está por debajo del umbral mínimo
+
+#### Control automático:
+- Al crear un pedido, el sistema verifica disponibilidad de ingredientes
+- Si no hay suficiente stock, se impide la creación del pedido
+- Actualización automática de inventario al confirmar pedidos
+- Registro de movimientos de inventario en logs
+
+### Archivo de persistencia
+
+- `inventario` - Almacena la información de ingredientes en formato: `id|nombre|stock|unidad`
+- `producto_ingrediente` - Almacena las relaciones entre productos e ingredientes en formato: `id_producto|id_ingrediente|cantidad_necesaria`
+- El sistema carga estos archivos al iniciar y los actualiza periódicamente
+- Los cambios en el inventario son persistentes entre reinicios del sistema
