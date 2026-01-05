@@ -9,7 +9,7 @@
 #include <openssl/rand.h>
 #include <unistd.h>
 
-// Función para generar un hash SHA256
+// Generar un hash SHA256
 void hash_string(const char* input, char* output) {
     unsigned char digest[EVP_MAX_MD_SIZE];
     unsigned int digest_len;
@@ -29,7 +29,7 @@ void hash_string(const char* input, char* output) {
     output[digest_len * 2] = '\0';
 }
 
-// Función para generar un token aleatorio
+// Generar un token aleatorio
 void generar_token_aleatorio(char* token, size_t length) {
     const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     for(size_t i = 0; i < length - 1; i++) {

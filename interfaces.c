@@ -20,7 +20,7 @@
 #define PERMISOS 0644
 #define MAX_CLIENTES 10
 
-// Estructura de datos compartidos
+// Datos para cada cliente conectado
 typedef struct {
     int cliente_conectado;
     int peticion_lista;
@@ -50,12 +50,12 @@ extern int enviar_peticion(Peticion *pet, Respuesta *resp);
 
 // Funciones de la interfaz de administrador
 
-// Función para dibujar botones de selección Sí/No
+// Dibujar botones de selección Sí/No
 void dibujar_botones_si_no(int centro_x, int boton_y, int seleccion, int ancho_boton, int alto_boton) {
     dibujar_botones_confirmacion(centro_x, boton_y, seleccion, ancho_boton, alto_boton, "SI", "NO");
 }
 
-// Función para dibujar botones de confirmación generales
+// Dibujar botones de confirmación generales
 void dibujar_botones_confirmacion(int centro_x, int boton_y, int seleccion, int ancho_boton, int alto_boton, char *texto_opcion1, char *texto_opcion2) {
     int boton_x_op1 = centro_x;
     int boton_x_op2 = centro_x + 20; // Separación entre botones
@@ -115,7 +115,7 @@ void dibujar_botones_confirmacion(int centro_x, int boton_y, int seleccion, int 
     attroff(COLOR_PAIR(color_op2) | (seleccion == 1 ? A_BOLD : 0));
 }
 
-// Función para dibujar recuadro de usuario similar al de cocina
+// Dibujar recuadro de usuario similar al de cocina
 void dibujar_recuadro_usuario_horizontal(int x, int y, int ancho, USUARIO *usr, int usr_index, int seleccionado) {
     int color_borde = seleccionado ? 5 : 10;
 
@@ -199,7 +199,7 @@ void dibujar_recuadro_usuario_horizontal(int x, int y, int ancho, USUARIO *usr, 
     }
 }
 
-// Función para dibujar recuadro de nuevo usuario
+// Dibujar recuadro de nuevo usuario
 void dibujar_recuadro_nuevo_usuario_horizontal(int x, int y, int ancho, int seleccionado) {
     int color_borde = seleccionado ? 5 : 10;
 

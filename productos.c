@@ -190,7 +190,7 @@ int producto_verificar_disponibilidad(int id_producto) {
     return producto_verificar_disponibilidad_cantidad(id_producto, 1);
 }
 
-// Función para eliminar producto
+// Eliminar producto del sistema
 int producto_eliminar(int id_producto) {
     int index = -1;
     // Encontrar el índice del producto a eliminar

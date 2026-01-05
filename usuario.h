@@ -32,7 +32,7 @@ int validar_password(const char* pass);
 int validar_email(const char* mail);
 int validar_telefono(const char* telf);
 
-// Función para eliminar usuario por nombre
+// Eliminar usuario por nombre
 int usuario_eliminar_por_nombre(const char* user);
 
 // Encriptación

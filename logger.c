@@ -157,7 +157,7 @@ void obtener_timestamp_formateado(time_t timestamp, char* buffer, int size) {
     strftime(buffer, size, "%d-%m-%Y %H:%M:%S", tm_info);
 }
 
-// Hilo para logging de autenticación
+// Hilo encargado del logging de autenticación
 void* hilo_logger_auth(void* arg) {
     FILE* archivo = NULL;
     
@@ -207,7 +207,7 @@ void* hilo_logger_auth(void* arg) {
     pthread_exit(NULL);
 }
 
-// Hilo para logging de cocina
+// Hilo encargado del logging de cocina
 void* hilo_logger_cocina(void* arg) {
     FILE* archivo = NULL;
     

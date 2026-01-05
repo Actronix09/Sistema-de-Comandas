@@ -16,7 +16,7 @@
 #define MAX_CLIENTES 10
 #define MAX_INTENTOS_CONEXION 30
 
-// Estructura de datos compartidos
+// Datos para cada cliente conectado
 typedef struct {
     int cliente_conectado;
     int peticion_lista;

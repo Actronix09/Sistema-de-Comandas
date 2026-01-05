@@ -194,7 +194,7 @@ void producto_vincular_ingrediente(int id_producto, int id_ingrediente, int cant
     inventario_guardar();
 }
 
-// Función para agregar ingrediente
+// Agregar ingrediente al inventario
 int inventario_agregar_ingrediente(const char* nombre, int cantidad) {
     if(total_ingredientes >= MAX_INGREDIENTES)
         return -1;
@@ -230,7 +230,7 @@ int inventario_agregar_ingrediente(const char* nombre, int cantidad) {
     return 0;
 }
 
-// Función para modificar cantidad de ingrediente
+// Modificar cantidad de ingrediente
 int inventario_modificar_cantidad(int id_ingrediente, int nueva_cantidad) {
     for(int i = 0; i < total_ingredientes; i++) {
         if(ingredientes[i].id == id_ingrediente) {
@@ -242,7 +242,7 @@ int inventario_modificar_cantidad(int id_ingrediente, int nueva_cantidad) {
     return -1; // Ingrediente no encontrado
 }
 
-// Función para eliminar ingrediente
+// Eliminar ingrediente del inventario
 int inventario_eliminar_ingrediente(int id_ingrediente) {
     int index = -1;
     // Encontrar el índice del ingrediente a eliminar
@@ -283,7 +283,7 @@ int inventario_eliminar_ingrediente(int id_ingrediente) {
     return 0;
 }
 
-// Función para eliminar relaciones de un producto específico
+// Eliminar relaciones de un producto específico
 void inventario_eliminar_relaciones_producto(int id_producto) {
     // Eliminar todas las relaciones que usan este producto
     for(int i = 0; i < total_relaciones; i++) {

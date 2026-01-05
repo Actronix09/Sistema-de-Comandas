@@ -182,7 +182,7 @@ int pedidos_contar_por_estado(EstadoPedido estado) {
     return count;
 }
 
-// Función para eliminar pedido
+// Eliminar pedido del sistema
 int pedido_eliminar(int id_pedido) {
     int index = -1;
     // Encontrar el índice del pedido a eliminar

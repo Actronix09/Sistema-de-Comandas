@@ -18,7 +18,7 @@
 #define PERMISOS 0644
 #define MAX_CLIENTES 10
 
-// Estructura de datos compartidos
+// Datos para cada cliente conectado
 typedef struct {
     int cliente_conectado;
     int peticion_lista;
@@ -35,7 +35,7 @@ typedef struct {
     DatosCliente clientes[MAX_CLIENTES];
 } DatosCompartidos;
 
-// Estructura para argumentos del hilo
+// Argumentos para el hilo que atiende al cliente
 typedef struct {
     DatosCompartidos *datos;
     int semid;
@@ -72,32 +72,32 @@ void up(int semid) {
 void limpiar_recursos(int signal) {
     printf("\n\n========================================\n");
     printf("Cerrando servidor...\n");
-    
+
     // Detener hilos de logging
     logger_activo = 0;
     printf("Esperando a que finalicen los hilos de logging...\n");
     pthread_join(hilo_log_auth, NULL);
     pthread_join(hilo_log_cocina, NULL);
-    
+
     logger_cleanup();
-    
+
     if (semid_estado_global != -1) {
         down(semid_estado_global);
         up(semid_estado_global);
         semctl(semid_estado_global, 0, IPC_RMID, 0);
         printf("Semaforo de estado eliminado\n");
     }
-    
+
     if (shmid_global != -1) {
         shmctl(shmid_global, IPC_RMID, 0);
         printf("Memoria compartida eliminada\n");
     }
-    
+
     if (semid_global != -1) {
         semctl(semid_global, 0, IPC_RMID, 0);
         printf("Semaforo principal eliminado\n");
     }
-    
+
     printf("Servidor cerrado correctamente\n");
     printf("========================================\n");
     exit(0);
@@ -126,7 +126,7 @@ void procesarPeticion(Peticion *pet, Respuesta *resp, int cliente_num) {
                 strcpy(resp->mensaje, "Usuario o contraseña incorrectos");
                 printf("    X Login fallido para: %s\n", pet->user);
                 
-                // LOG: Login fallido
+                // Loguear login fallido
                 log_evento_auth(LOG_LOGIN_FALLIDO, pet->user, "Credenciales incorrectas", cliente_num);
             }
             break;
@@ -138,7 +138,7 @@ void procesarPeticion(Peticion *pet, Respuesta *resp, int cliente_num) {
                 strcpy(resp->mensaje, "El usuario ya existe");
                 printf("    X Usuario ya existe: %s\n", pet->user);
                 
-                // LOG: Usuario ya existe
+                // Registrar intento de duplicado
                 log_evento_auth(LOG_USUARIO_EXISTE, pet->user, "Intento de crear usuario duplicado", cliente_num);
                 break;
             }

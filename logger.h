@@ -26,7 +26,7 @@ typedef enum {
     LOG_PEDIDO_ERROR
 } TipoEventoCocina;
 
-// Estructura para eventos de autenticación
+// Estructura de evento de autenticación
 typedef struct {
     TipoEventoAuth tipo;
     time_t timestamp;
@@ -35,7 +35,7 @@ typedef struct {
     int cliente_id;
 } EventoAuth;
 
-// Estructura para eventos de cocina
+// Estructura de evento de cocina
 typedef struct {
     TipoEventoCocina tipo;
     time_t timestamp;
@@ -61,7 +61,7 @@ typedef struct {
     int count;
 } ColaCocina;
 
-// Variables globales para las colas y semáforos
+// Variables globales para el sistema de log
 extern ColaAuth cola_auth;
 extern ColaCocina cola_cocina;
 extern int sem_auth;
