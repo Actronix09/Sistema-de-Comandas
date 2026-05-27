@@ -14,6 +14,7 @@ Sistema cliente-servidor para la gestión de comandas en restaurantes, desarroll
 - [Protocolo de Comunicación](#protocolo-de-comunicación)
 - [Sistema de Logging](#sistema-de-logging)
 - [Gestión de Inventario](#gestión-de-inventario)
+- [Licencia](#licencia)
 
 ---
 
@@ -711,3 +712,9 @@ El sistema incluye una funcionalidad avanzada de gestión de inventario que perm
 - `producto_ingrediente` - Almacena las relaciones entre productos e ingredientes en formato: `id_producto|id_ingrediente|cantidad_necesaria`
 - El sistema carga estos archivos al iniciar y los actualiza periódicamente
 - Los cambios en el inventario son persistentes entre reinicios del sistema
+
+## Licencia
+
+Este proyecto está licenciado bajo la [MIT License](LICENSE).
+
+Uso libre: puedes usar, copiar, modificar, fusionar, publicar, distribuir, sublicenciar y/o vender copias del software, siempre y cuando se incluya el aviso de copyright y la licencia.
