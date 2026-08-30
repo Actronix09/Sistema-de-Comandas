@@ -14,6 +14,8 @@ void ui_print_title(const char* title);
 void ui_print_footer(const char* message);
 void ui_print_centered(int row, const char* text);
 void ui_print_colored(int row, int col, const char* text, int color_pair);
+void ui_draw_separator(int row, char caracter);
+void ui_clear_area(int row_inicio, int row_fin);
 
 // Entrada de datos
 void ui_read_input(int row, int col, char* buffer, int max_len, int hide);

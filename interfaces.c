@@ -1830,8 +1830,7 @@ void interfaz_cocina_ejecutar(USUARIO* usuario) {
         mvprintw(4, 25, "%d EN PROGRESO", en_progreso);
         attroff(COLOR_PAIR(5) | A_BOLD);
 
-        mvprintw(5, 0, " ");
-        for(int i = 0; i < COLS; i++) addch('=');
+        ui_draw_separator(5, '=');
 
         if(resp.num_pedidos == 0) {
             attron(COLOR_PAIR(10));
@@ -1839,7 +1838,7 @@ void interfaz_cocina_ejecutar(USUARIO* usuario) {
             attroff(COLOR_PAIR(10));
 
             attron(COLOR_PAIR(10));
-            mvprintw(LINES-3, 2, "Presione R para actualizar | ESC para salir");
+            ui_print_footer("Presione R para actualizar | ESC para salir");
             attroff(COLOR_PAIR(10));
 
             refresh();
@@ -1869,11 +1868,8 @@ void interfaz_cocina_ejecutar(USUARIO* usuario) {
         int actualizar = 0;
 
         while(!actualizar && !salir) {
-            // Limpiar área de pedidos
-            for(int i = y_inicio; i < LINES-4; i++) {
-                move(i, 0);
-                clrtoeol();
-            }
+            // Limpiar área de pedidos (sin borrar los bordes del marco)
+            ui_clear_area(y_inicio, LINES-5);
 
             // Calcular rango visible
             if(seleccionado < offset_scroll) {
@@ -1895,7 +1891,7 @@ void interfaz_cocina_ejecutar(USUARIO* usuario) {
 
             // Instrucciones
             attron(COLOR_PAIR(10));
-            mvprintw(LINES-3, 2, "Flechas ARRIBA/ABAJO: navegar | 1: En progreso | 2: Listo | R: Actualizar | ESC: Salir");
+            ui_print_footer("Flechas: navegar | 1: En progreso | 2: Listo | R: Actualizar | ESC: Salir");
             attroff(COLOR_PAIR(10));
 
             // Indicador de posición y scroll
@@ -2175,8 +2171,7 @@ void interfaz_mesero_ejecutar(USUARIO* usuario) {
         ui_print_centered(3, info);
         attroff(COLOR_PAIR(10));
 
-        mvprintw(4, 0, " ");
-        for(int i = 0; i < COLS; i++) addch('-');
+        ui_draw_separator(4, '-');
 
         // Menú
         char *opciones[] = {

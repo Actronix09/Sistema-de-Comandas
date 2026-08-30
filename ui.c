@@ -72,10 +72,25 @@ void ui_print_title(const char* title)
     mvprintw(3, (COLS - len)/2, "%.*s", len, "====================");
 }
 
-// Imprimir mensaje en el pie de página
+// Imprimir mensaje en el pie de página (recortado para no desbordar el marco)
 void ui_print_footer(const char* message)
 {
-    mvprintw(LINES-3, 2, "%s", message);
+    mvprintw(LINES-3, 2, "%.*s", COLS-4, message);
+}
+
+// Dibujar una linea separadora sin pisar los bordes laterales
+void ui_draw_separator(int row, char caracter)
+{
+    for(int x = 1; x < COLS-1; x++)
+        mvaddch(row, x, caracter);
+}
+
+// Limpiar el interior de un rango de filas respetando los bordes
+void ui_clear_area(int row_inicio, int row_fin)
+{
+    for(int y = row_inicio; y <= row_fin && y < LINES; y++)
+        for(int x = 1; x < COLS-1; x++)
+            mvaddch(y, x, ' ');
 }
 
 // Imprimir texto centrado en una fila
@@ -92,6 +107,40 @@ void ui_print_colored(int row, int col, const char* text, int color_pair)
     attroff(COLOR_PAIR(color_pair));
 }
 
+// Calcular el ancho utilizable de un campo de entrada.
+// Recorre el renglon de derecha a izquierda saltando el contenido ya dibujado
+// (borde y paneles laterales) para no borrarlo al limpiar el campo.
+static int ui_field_width(int row, int col)
+{
+    int x = col;
+    int limite = COLS - 1; // el borde derecho vive en COLS-1
+
+    // Saltar el contenido previo del campo (un espacio suelto sigue siendo parte
+    // del texto; dos o mas marcan el final del campo)
+    while(x < limite)
+    {
+        int actual = mvinch(row, x) & A_CHARTEXT;
+        int siguiente = (x + 1 < limite) ? (mvinch(row, x + 1) & A_CHARTEXT) : ' ';
+        if(actual == ' ' && siguiente == ' ')
+            break;
+        x++;
+    }
+
+    // Avanzar por el espacio libre hasta topar con lo ya dibujado (panel o borde)
+    while(x < limite && (mvinch(row, x) & A_CHARTEXT) == ' ')
+        x++;
+
+    return (x > col) ? (x - col) : 1;
+}
+
+// Limpiar solo el area del campo, respetando el borde y los paneles
+static void ui_clear_field(int row, int col, int ancho)
+{
+    for(int i = 0; i < ancho; i++)
+        mvaddch(row, col + i, ' ');
+    move(row, col);
+}
+
 // Leer entrada del usuario
 void ui_read_input(int row, int col, char* buffer, int max_len, int hide)
 {
@@ -99,8 +148,11 @@ void ui_read_input(int row, int col, char* buffer, int max_len, int hide)
     int key;
     buffer[0] = '\0';
 
-    move(row, col);
-    clrtoeol();
+    int ancho = ui_field_width(row, col);
+    if(max_len - 1 < ancho)
+        ancho = max_len - 1;
+
+    ui_clear_field(row, col, ancho);
     curs_set(1);
 
     while(1)
@@ -124,7 +176,7 @@ void ui_read_input(int row, int col, char* buffer, int max_len, int hide)
             addch(' ');
             move(row, col + i);
         }
-        else if(key >= 32 && key <= 126 && i < max_len - 1)
+        else if(key >= 32 && key <= 126 && i < ancho)
         {
             buffer[i] = key;
             i++;
@@ -247,8 +299,11 @@ void ui_read_input_with_placeholder(int row, int col, char* buffer, int max_len,
     int key;
     int input_started = 0; // Indica si el usuario ha comenzado a escribir
 
-    move(row, col);
-    clrtoeol(); // Limpiar la línea
+    int ancho = ui_field_width(row, col);
+    if(max_len - 1 < ancho)
+        ancho = max_len - 1;
+
+    ui_clear_field(row, col, ancho); // Limpiar solo el campo
 
     // Mostrar placeholder inicialmente
     attron(COLOR_PAIR(8)); // Usar color apagado para el placeholder
@@ -275,9 +330,8 @@ void ui_read_input_with_placeholder(int row, int col, char* buffer, int max_len,
             i--;
             buffer[i] = '\0';
 
-            // Redibujar la línea limpiando lo que se ha escrito
-            move(row, col);
-            clrtoeol();
+            // Redibujar el campo limpiando lo que se ha escrito
+            ui_clear_field(row, col, ancho);
 
             if (i == 0 && !input_started) {
                 // Si se borra completamente y no se había empezado a escribir, mostrar placeholder
@@ -291,14 +345,13 @@ void ui_read_input_with_placeholder(int row, int col, char* buffer, int max_len,
                 }
             }
         }
-        else if(key >= 32 && key <= 126 && i < max_len - 1)
+        else if(key >= 32 && key <= 126 && i < ancho)
         {
             input_started = 1; // Marcar que el usuario ha comenzado a escribir
 
             // Si es la primera entrada, borrar placeholder
             if (i == 0) {
-                move(row, col);
-                clrtoeol();
+                ui_clear_field(row, col, ancho);
             }
 
             buffer[i] = key;
