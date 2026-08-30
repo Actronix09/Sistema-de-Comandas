@@ -1,256 +1,171 @@
 #include "recuperar_password.h"
 #include "usuario.h"
-#include "logger.h"
+#include "protocolo.h"
+#include "ui.h"
+#include "interfaces.h"
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#include <openssl/evp.h>
-#include <openssl/rand.h>
-#include <unistd.h>
+#include <ncurses.h>
 
-// Función para generar un hash SHA256
-void hash_string(const char* input, char* output) {
-    unsigned char digest[EVP_MAX_MD_SIZE];
-    unsigned int digest_len;
-    
-    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
-    const EVP_MD* md = EVP_sha256();
-    
-    EVP_DigestInit_ex(ctx, md, NULL);
-    EVP_DigestUpdate(ctx, input, strlen(input));
-    EVP_DigestFinal_ex(ctx, digest, &digest_len);
-    EVP_MD_CTX_free(ctx);
-    
-    // Convertir a hexadecimal
-    for(unsigned int i = 0; i < digest_len; i++) {
-        sprintf(output + (i * 2), "%02x", digest[i]);
-    }
-    output[digest_len * 2] = '\0';
-}
+// Mostrar un error y preguntar si se desea intentar de nuevo (1 = si, 0 = no)
+static int preguntar_reintentar(const char* mensaje_error) {
+    ui_clear_screen();
+    ui_print_colored(LINES/2 - 3, (COLS-strlen(mensaje_error))/2, mensaje_error, 3);
+    mvprintw(LINES/2 + 1, (COLS-strlen("Intentar otra vez?"))/2, "Intentar otra vez?");
 
-// Función para generar un token aleatorio
-void generar_token_aleatorio(char* token, size_t length) {
-    const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    for(size_t i = 0; i < length - 1; i++) {
-        int key = rand() % (int)(sizeof(charset) - 1);
-        token[i] = charset[key];
-    }
-    token[length - 1] = '\0';
-}
+    int centro_x = (COLS - 32) / 2;
+    int boton_y = LINES/2 + 3;
+    int boton_ancho = 12;
+    int boton_alto = 3;
 
-// Guardar token en archivo
-int guardar_token(const TokenRecuperacion* token_rec) {
-    FILE* archivo = fopen("tokens_recuperacion.txt", "a");
-    if (!archivo) {
-        return -1;
-    }
-    
-    fprintf(archivo, "%s|%s|%ld|%d\n", 
-            token_rec->user, 
-            token_rec->token, 
-            (long)token_rec->timestamp, 
-            token_rec->usado);
-    
-    fclose(archivo);
-    return 0;
-}
+    int seleccion = 0; // 0 para Si, 1 para No
 
-// Buscar token en archivo
-TokenRecuperacion* buscar_token(const char* user, const char* token) {
-    FILE* archivo = fopen("tokens_recuperacion.txt", "r");
-    if (!archivo) {
-        return NULL;
-    }
-    
-    TokenRecuperacion* temp_token = malloc(sizeof(TokenRecuperacion));
-    char linea[256];
-    
-    while (fgets(linea, sizeof(linea), archivo)) {
-        // Parsear la línea
-        char* user_guardado = strtok(linea, "|");
-        char* token_guardado = strtok(NULL, "|");
-        char* timestamp_str = strtok(NULL, "|");
-        char* usado_str = strtok(NULL, "|");
-        
-        if (user_guardado && token_guardado && timestamp_str && usado_str) {
-            // Remover salto de línea del último campo
-            if (usado_str[strlen(usado_str)-1] == '\n') {
-                usado_str[strlen(usado_str)-1] = '\0';
-            }
-            
-            if (strcmp(user_guardado, user) == 0 && strcmp(token_guardado, token) == 0) {
-                strcpy(temp_token->user, user_guardado);
-                strcpy(temp_token->token, token_guardado);
-                temp_token->timestamp = atol(timestamp_str);
-                temp_token->usado = atoi(usado_str);
-                
-                fclose(archivo);
-                return temp_token;
-            }
+    while(1) {
+        dibujar_botones_si_no(centro_x, boton_y, seleccion, boton_ancho, boton_alto);
+        ui_print_footer("Use flechas para navegar y Enter para seleccionar");
+        refresh();
+
+        int tecla = getch();
+        if(tecla == KEY_LEFT || tecla == KEY_RIGHT) {
+            seleccion = 1 - seleccion;
+        } else if(tecla == 10) { // Enter
+            return (seleccion == 0) ? 1 : 0;
+        } else if(tecla == 27) { // ESC
+            return 0;
         }
     }
-    
-    fclose(archivo);
-    free(temp_token);
-    return NULL;
 }
 
-// Marcar token como usado
-int marcar_token_usado(const char* user, const char* token) {
-    FILE* archivo_lectura = fopen("tokens_recuperacion.txt", "r");
-    if (!archivo_lectura) {
-        return -1;
-    }
-    
-    FILE* archivo_temp = fopen("tokens_temp.txt", "w");
-    if (!archivo_temp) {
-        fclose(archivo_lectura);
-        return -1;
-    }
-    
-    char linea[256];
-    int token_actualizado = 0;
-    
-    while (fgets(linea, sizeof(linea), archivo_lectura)) {
-        char* user_guardado = strtok(linea, "|");
-        char* token_guardado = strtok(NULL, "|");
-        char* timestamp_str = strtok(NULL, "|");
-        char* usado_str = strtok(NULL, "|");
-        
-        if (user_guardado && token_guardado && timestamp_str && usado_str) {
-            // Remover salto de línea del último campo
-            if (usado_str[strlen(usado_str)-1] == '\n') {
-                usado_str[strlen(usado_str)-1] = '\0';
-            }
-            
-            if (strcmp(user_guardado, user) == 0 && strcmp(token_guardado, token) == 0) {
-                fprintf(archivo_temp, "%s|%s|%s|%d\n", 
-                        user_guardado, token_guardado, timestamp_str, 1);
-                token_actualizado = 1;
-            } else {
-                fprintf(archivo_temp, "%s|%s|%s|%s", 
-                        user_guardado, token_guardado, timestamp_str, usado_str);
-                if (linea[strlen(linea)-1] != '\n') {
-                    fprintf(archivo_temp, "\n");
-                }
-            }
-        }
-    }
-    
-    fclose(archivo_lectura);
-    fclose(archivo_temp);
-    
-    // Reemplazar archivo original
-    if (token_actualizado) {
-        remove("tokens_recuperacion.txt");
-        rename("tokens_temp.txt", "tokens_recuperacion.txt");
-    } else {
-        remove("tokens_temp.txt");
-        return -1;
-    }
-    
-    return token_actualizado ? 0 : -1;
-}
+// Consultar al servidor si el usuario existe y si no es administrador
+int verificar_usuario_recuperable(const char* user, char* motivo, int motivo_len) {
+    Peticion pet;
+    Respuesta resp;
+    memset(&pet, 0, sizeof(Peticion));
+    memset(&resp, 0, sizeof(Respuesta));
 
-// Generar token de recuperación
-int generar_token_recuperacion(const char* user) {
-    // Verificar que el usuario existe
-    if (!usuario_existe(user)) {
-        // No se puede usar logger_escribir, se registrará en el log de autenticación
-        log_evento_auth(LOG_PASSWORD_FALLIDA, user, "Usuario no existe para recuperación de contraseña", 0);
+    pet.operacion = OP_VERIFICAR_USUARIO;
+    strncpy(pet.user, user, MAX_CHAIN_SIZE-1);
+
+    if(enviar_peticion(&pet, &resp) != 0) {
+        snprintf(motivo, motivo_len, "Error de comunicacion con el servidor");
         return -1;
     }
 
-    TokenRecuperacion token_rec;
-    strcpy(token_rec.user, user);
-    token_rec.timestamp = time(NULL);
-    token_rec.usado = 0;
-
-    // Generar token aleatorio
-    char token_temp[33];
-    generar_token_aleatorio(token_temp, 32);
-
-    // Crear hash del token aleatorio para mayor seguridad
-    hash_string(token_temp, token_rec.token);
-
-    // Guardar token
-    if (guardar_token(&token_rec) != 0) {
-        log_evento_auth(LOG_PASSWORD_FALLIDA, user, "No se pudo guardar el token de recuperación", 0);
-        return -1;
-    }
-
-    // Enviar notificación (simulado)
-    enviar_notificacion_recuperacion(user);
-
-    log_evento_auth(LOG_PASSWORD_RECUPERADA, user, "Se generó token de recuperación", 0);
-    return 0;
-}
-
-// Validar token de recuperación
-int validar_token_recuperacion(const char* user, const char* token) {
-    TokenRecuperacion* token_encontrado = buscar_token(user, token);
-
-    if (!token_encontrado) {
-        log_evento_auth(LOG_PASSWORD_FALLIDA, user, "Token no encontrado", 0);
-        free(token_encontrado);
-        return -1;
-    }
-
-    // Verificar si ya fue usado
-    if (token_encontrado->usado) {
-        log_evento_auth(LOG_PASSWORD_FALLIDA, user, "Token ya fue usado", 0);
-        free(token_encontrado);
+    if(resp.codigo != RESP_USUARIO_EXISTE) {
+        snprintf(motivo, motivo_len, "El usuario no existe");
         return -2;
     }
 
-    // Verificar expiración (1 hora)
-    time_t ahora = time(NULL);
-    if (ahora - token_encontrado->timestamp > 3600) { // 1 hora en segundos
-        log_evento_auth(LOG_PASSWORD_FALLIDA, user, "Token expirado", 0);
-        free(token_encontrado);
+    if(resp.tipo_usuario == 2) {
+        snprintf(motivo, motivo_len, "No se puede recuperar la contrasena de un administrador");
         return -3;
     }
 
-    free(token_encontrado);
+    motivo[0] = '\0';
     return 0;
 }
 
-// Cambiar contraseña usando token
-int cambiar_password_por_token(const char* user, const char* token, const char* new_pass) {
-    // Validar token
-    int validacion = validar_token_recuperacion(user, token);
-    if (validacion != 0) {
-        return validacion;
+// Enviar la nueva contraseña al servidor
+int aplicar_nueva_password(const char* user, const char* new_pass, char* motivo, int motivo_len) {
+    Peticion pet;
+    Respuesta resp;
+    memset(&pet, 0, sizeof(Peticion));
+    memset(&resp, 0, sizeof(Respuesta));
+
+    pet.operacion = OP_RECUPERAR_PASS;
+    strncpy(pet.user, user, MAX_CHAIN_SIZE-1);
+    strncpy(pet.pass, new_pass, MAX_CHAIN_SIZE-1);
+
+    if(enviar_peticion(&pet, &resp) != 0) {
+        snprintf(motivo, motivo_len, "Error de comunicacion con el servidor");
+        return -1;
     }
 
-    // Validar nueva contraseña
-    if (validar_password(new_pass) != 0) {
-        log_evento_auth(LOG_PASSWORD_FALLIDA, user, "Nueva contraseña inválida", 0);
-        return -4;
+    if(resp.codigo != RESP_OK) {
+        snprintf(motivo, motivo_len, "%s", resp.mensaje);
+        return -1;
     }
 
-    // Cambiar contraseña
-    int resultado = usuario_recuperar_pass(user, new_pass);
-    if (resultado != 0) {
-        log_evento_auth(LOG_PASSWORD_FALLIDA, user, "No se pudo cambiar la contraseña", 0);
-        return -5;
-    }
-
-    // Marcar token como usado
-    if (marcar_token_usado(user, token) != 0) {
-        log_evento_auth(LOG_PASSWORD_FALLIDA, user, "No se pudo marcar token como usado", 0);
-        return -6;
-    }
-
-    log_evento_auth(LOG_PASSWORD_RECUPERADA, user, "Contraseña cambiada exitosamente", 0);
+    motivo[0] = '\0';
     return 0;
 }
 
-// Enviar notificación de recuperación (simulado)
-int enviar_notificacion_recuperacion(const char* user) {
-    // En un sistema real, aquí se enviaría un correo o notificación
-    // Por ahora, solo registramos la acción
-    log_evento_auth(LOG_PASSWORD_RECUPERADA, user, "Solicitud de recuperación de contraseña", 0);
-    return 0;
+// Interfaz de recuperación de contraseña
+void recuperar_password() {
+    int intentar_nuevamente = 1;
+
+    while(intentar_nuevamente) {
+        char user[MAX_CHAIN_SIZE];
+        char new_pass[MAX_CHAIN_SIZE];
+        char mensaje_error[256];
+
+        // Pedir el usuario y verificarlo
+        ui_clear_screen();
+        ui_print_title("Recuperar Contrasena");
+
+        attron(COLOR_PAIR(10) | A_BOLD);
+        mvprintw(6, 5, "Usuario:");
+        attroff(COLOR_PAIR(10) | A_BOLD);
+
+        ui_print_footer("Presione ESC para cancelar");
+        refresh();
+
+        ui_read_input(6, 14, user, MAX_CHAIN_SIZE, 0);
+        if(strlen(user) == 0) return;
+
+        if(verificar_usuario_recuperable(user, mensaje_error, sizeof(mensaje_error)) != 0) {
+            intentar_nuevamente = preguntar_reintentar(mensaje_error);
+            continue;
+        }
+
+        // UI contraseña
+        ui_clear_screen();
+        ui_print_title("Recuperar Contrasena");
+
+        attron(COLOR_PAIR(10) | A_BOLD);
+        mvprintw(6, 5, "Usuario:");
+        mvprintw(8, 5, "Nueva contrasena:");
+        attroff(COLOR_PAIR(10) | A_BOLD);
+
+        attron(COLOR_PAIR(9) | A_BOLD);
+        mvprintw(6, 14, "%s", user);
+        attroff(COLOR_PAIR(9) | A_BOLD);
+
+        // Mostrar requisitos de contraseña
+        attron(COLOR_PAIR(6) | A_BOLD);
+        mvprintw(1, COLS - 29, "+==========================+");
+        mvprintw(2, COLS - 29, "| REQUISITOS DE CONTRASENA |");
+        mvprintw(3, COLS - 29, "+==========================+");
+        attroff(COLOR_PAIR(6) | A_BOLD);
+        attron(COLOR_PAIR(6));
+        mvprintw(4, COLS - 29, "| > Minimo 8 caracteres    |");
+        mvprintw(5, COLS - 29, "| > 1 mayuscula (A-Z)      |");
+        mvprintw(6, COLS - 29, "| > 1 minuscula (a-z)      |");
+        mvprintw(7, COLS - 29, "| > 1 numero (0-9)         |");
+        mvprintw(8, COLS - 29, "| > 2 simbolos (*/_-+.)    |");
+        attroff(COLOR_PAIR(6));
+        attron(COLOR_PAIR(6) | A_BOLD);
+        mvprintw(9, COLS - 29, "+==========================+");
+        attroff(COLOR_PAIR(6) | A_BOLD);
+
+        ui_print_footer("Presione ESC para cancelar");
+        refresh();
+
+        ui_read_input(8, 24, new_pass, MAX_CHAIN_SIZE, 1);
+        if(strlen(new_pass) == 0) return;
+
+        if(validar_password(new_pass) != 0) {
+            intentar_nuevamente = preguntar_reintentar("La contrasena es invalida");
+            continue;
+        }
+
+        // Enviar la nueva contrasena al servidor
+        if(aplicar_nueva_password(user, new_pass, mensaje_error, sizeof(mensaje_error)) != 0) {
+            intentar_nuevamente = preguntar_reintentar(mensaje_error);
+            continue;
+        }
+
+        ui_show_success("Contrasena cambiada exitosamente!");
+        return;
+    }
 }

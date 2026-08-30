@@ -90,9 +90,9 @@ cleanall: clean
 datauser:
 	# Datos de productos
 	@echo "Creando archivos de datos iniciales..."
-	@echo "Administrador|admin|0192023a7bbd73250516f069df18b500|admin@test.com|12345678|2" > usuarios
-	@echo "CocinaTEST|cocina|81dc9bdb52d04dc20036dbd8313ed055|cocina@test.com|12345678|1" >> usuarios
-	@echo "MeseroTEST|mesero|81dc9bdb52d04dc20036dbd8313ed055|mesero@test.com|12345678|0" >> usuarios
+	@echo "Administrador|admin|240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9|admin@test.com|12345678|2" > usuarios
+	@echo "CocinaTEST|cocina|03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4|cocina@test.com|12345678|1" >> usuarios
+	@echo "MeseroTEST|mesero|03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4|mesero@test.com|12345678|0" >> usuarios
 	@echo "Archivos de usuarios creados"
 	@echo "Usuarios creados:"
 	@echo "  - Administrador: Usuario: admin | contraseña: admin123"

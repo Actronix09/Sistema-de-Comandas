@@ -184,7 +184,26 @@ void procesarPeticion(Peticion *pet, Respuesta *resp, int cliente_num) {
         }
         
         case OP_RECUPERAR_PASS: {
-            if(!usuario_existe(pet->user)) {
+            USUARIO* usr_rec = NULL;
+            for(int i = 0; i < usuario_get_total(); i++) {
+                USUARIO* temp = usuario_get_by_index(i);
+                if(temp && strcmp(temp->user, pet->user) == 0) {
+                    usr_rec = temp;
+                    break;
+                }
+            }
+
+            if(usr_rec && usr_rec->tipo == 2) {
+                resp->codigo = RESP_ERROR;
+                strcpy(resp->mensaje, "No se puede recuperar la contrasena de un administrador");
+                printf("    X Recuperacion denegada (administrador): %s\n", pet->user);
+
+                // LOG: Recuperación denegada
+                log_evento_auth(LOG_PASSWORD_FALLIDA, pet->user, "Recuperacion denegada: usuario administrador", cliente_num);
+                break;
+            }
+
+            if(!usr_rec) {
                 resp->codigo = RESP_USUARIO_NO_EXISTE;
                 strcpy(resp->mensaje, "Usuario no encontrado");
                 printf("    X Usuario no encontrado: %s\n", pet->user);
@@ -221,11 +240,23 @@ void procesarPeticion(Peticion *pet, Respuesta *resp, int cliente_num) {
         }
         
         case OP_VERIFICAR_USUARIO: {
-            if(usuario_existe(pet->user)) {
+            USUARIO* encontrado = NULL;
+            for(int i = 0; i < usuario_get_total(); i++) {
+                USUARIO* temp = usuario_get_by_index(i);
+                if(temp && strcmp(temp->user, pet->user) == 0) {
+                    encontrado = temp;
+                    break;
+                }
+            }
+
+            if(encontrado) {
                 resp->codigo = RESP_USUARIO_EXISTE;
+                resp->tipo_usuario = encontrado->tipo;
+                strncpy(resp->nombre, encontrado->name, MAX_CHAIN_SIZE-1);
                 strcpy(resp->mensaje, "El usuario ya existe");
             } else {
                 resp->codigo = RESP_OK;
+                resp->tipo_usuario = -1;
                 strcpy(resp->mensaje, "Usuario disponible");
             }
             break;
@@ -322,7 +353,7 @@ void procesarPeticion(Peticion *pet, Respuesta *resp, int cliente_num) {
                 if(u) {
                     strncpy(resp->usuarios[i].name, u->name, MAX_CHAIN_SIZE-1);
                     strncpy(resp->usuarios[i].user, u->user, MAX_CHAIN_SIZE-1);
-                    strncpy(resp->usuarios[i].pass, u->pass, 32);
+                    strncpy(resp->usuarios[i].pass, u->pass, 64);
                     strncpy(resp->usuarios[i].mail, u->mail, MAX_CHAIN_SIZE-1);
                     strncpy(resp->usuarios[i].telf, u->telf, MAX_CHAIN_SIZE-1);
                     resp->usuarios[i].tipo = u->tipo;
@@ -348,7 +379,7 @@ void procesarPeticion(Peticion *pet, Respuesta *resp, int cliente_num) {
             if(usr) {
                 strncpy(resp->usuario.name, usr->name, MAX_CHAIN_SIZE-1);
                 strncpy(resp->usuario.user, usr->user, MAX_CHAIN_SIZE-1);
-                strncpy(resp->usuario.pass, usr->pass, 32);
+                strncpy(resp->usuario.pass, usr->pass, 64);
                 strncpy(resp->usuario.mail, usr->mail, MAX_CHAIN_SIZE-1);
                 strncpy(resp->usuario.telf, usr->telf, MAX_CHAIN_SIZE-1);
                 resp->usuario.tipo = usr->tipo;

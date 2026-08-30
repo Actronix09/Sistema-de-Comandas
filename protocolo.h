@@ -85,7 +85,7 @@ typedef struct {
 typedef struct {
     char name[MAX_CHAIN_SIZE];
     char user[MAX_CHAIN_SIZE];
-    char pass[33];  // MD5
+    char pass[65];  // SHA-256 en hexadecimal
     char mail[MAX_CHAIN_SIZE];
     char telf[MAX_CHAIN_SIZE];
     int tipo;

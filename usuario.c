@@ -12,14 +12,14 @@ void usuario_init()
     total_usuarios = 0;
 }
 
-// Encriptar password usando MD5
+// Encriptar password usando SHA-256
 void encriptar_password(const char* input, char* output)
 {
     unsigned char digest[EVP_MAX_MD_SIZE];
     unsigned int digest_len;
 
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-    EVP_DigestInit_ex(ctx, EVP_md5(), NULL);
+    EVP_DigestInit_ex(ctx, EVP_sha256(), NULL);
     EVP_DigestUpdate(ctx, input, strlen(input));
     EVP_DigestFinal_ex(ctx, digest, &digest_len);
     EVP_MD_CTX_free(ctx);
@@ -28,7 +28,7 @@ void encriptar_password(const char* input, char* output)
     {
         sprintf(&output[i*2], "%02x", (unsigned int)digest[i]);
     }
-    output[32] = '\0';
+    output[digest_len * 2] = '\0';
 }
 
 // Cargar usuarios desde archivo
@@ -52,7 +52,7 @@ void usuario_cargar()
         if(token) strncpy(usuarios[total_usuarios].user, token, MAX_CHAIN_SIZE-1);
 
         token = strtok(NULL, "|");
-        if(token) strncpy(usuarios[total_usuarios].pass, token, 32);
+        if(token) strncpy(usuarios[total_usuarios].pass, token, 64);
 
         token = strtok(NULL, "|");
         if(token) strncpy(usuarios[total_usuarios].mail, token, MAX_CHAIN_SIZE-1);
@@ -143,7 +143,7 @@ int usuario_crear(const char* name, const char* user, const char* pass, const ch
 // Autenticar usuario
 int usuario_autenticar(const char* user, const char* pass)
 {
-    char pass_encriptada[33];
+    char pass_encriptada[65];
     encriptar_password(pass, pass_encriptada);
 
     for(int i = 0; i < total_usuarios; i++)

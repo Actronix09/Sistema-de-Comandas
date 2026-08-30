@@ -8,7 +8,7 @@ typedef struct
 {
     char name[MAX_CHAIN_SIZE];
     char user[MAX_CHAIN_SIZE];
-    char pass[33];
+    char pass[65];  // SHA-256 en hexadecimal
     char mail[MAX_CHAIN_SIZE];
     char telf[MAX_CHAIN_SIZE];
     int tipo;  // 0 = Mesero, 1 = Cocina, 2 = Administrador

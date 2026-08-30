@@ -7,14 +7,14 @@
 USUARIO usuarios[MAX_USUARIOS];
 int total_usuarios = 0;
 
-// Función para encriptar cadena usando MD5
+// Función para encriptar cadena usando SHA-256
 void encriptar(const char* input, char* output)
 {
     unsigned char digest[EVP_MAX_MD_SIZE];
     unsigned int digest_len;
 
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-    EVP_DigestInit_ex(ctx, EVP_md5(), NULL);
+    EVP_DigestInit_ex(ctx, EVP_sha256(), NULL);
     EVP_DigestUpdate(ctx, input, strlen(input));
     EVP_DigestFinal_ex(ctx, digest, &digest_len);
     EVP_MD_CTX_free(ctx);
@@ -22,7 +22,7 @@ void encriptar(const char* input, char* output)
     for(unsigned int i = 0; i < digest_len; i++){
         sprintf(&output[i*2], "%02x", (unsigned int)digest[i]);
     }
-    output[32] = '\0';
+    output[digest_len * 2] = '\0';
 }
 
 // Función para cargar usuarios desde archivo
@@ -45,7 +45,7 @@ void cargar_usuarios()
             if(token) strncpy(usuarios[total_usuarios].user, token, MAX_CHAIN_SIZE-1);
 
             token = strtok(NULL, "|");
-            if(token) strncpy(usuarios[total_usuarios].pass, token, 32);
+            if(token) strncpy(usuarios[total_usuarios].pass, token, 64);
 
             token = strtok(NULL, "|");
             if(token) strncpy(usuarios[total_usuarios].mail, token, MAX_CHAIN_SIZE-1);

@@ -1,21 +1,24 @@
 #ifndef RECUPERAR_PASSWORD_H
 #define RECUPERAR_PASSWORD_H
 
-#include <time.h>
 #include "usuario.h"
+#include "protocolo.h"
 
-// Estructura para manejar tokens de recuperación de contraseña
-typedef struct {
-    char user[MAX_CHAIN_SIZE];
-    char token[33]; // Para almacenar un hash SHA256 en hexadecimal
-    time_t timestamp;
-    int usado;
-} TokenRecuperacion;
+// Comunicación con el servidor (implementada en Cliente.c)
+int enviar_peticion(Peticion *pet, Respuesta *resp);
 
-// Funciones para la recuperación de contraseña
-int generar_token_recuperacion(const char* user);
-int validar_token_recuperacion(const char* user, const char* token);
-int cambiar_password_por_token(const char* user, const char* token, const char* new_pass);
-int enviar_notificacion_recuperacion(const char* user);
+// Consulta al servidor si el usuario puede recuperar su contraseña.
+// Retorna 0 si es válido; en caso contrario escribe el motivo en 'motivo'.
+//   -1 = error de comunicacion
+//   -2 = el usuario no existe
+//   -3 = el usuario es administrador
+int verificar_usuario_recuperable(const char* user, char* motivo, int motivo_len);
+
+// Envía la nueva contraseña al servidor para el usuario indicado.
+// Retorna 0 si se actualizó; -1 si hubo error (motivo en 'motivo').
+int aplicar_nueva_password(const char* user, const char* new_pass, char* motivo, int motivo_len);
+
+// Interfaz completa de recuperación de contraseña
+void recuperar_password();
 
 #endif // RECUPERAR_PASSWORD_H
