@@ -158,6 +158,10 @@ void dibujar_recuadro_usuario_horizontal(int x, int y, int ancho, USUARIO *usr, 
 
         // Línea 2: Usuario y tipo
         attron(COLOR_PAIR(10));
+
+        // Ancho util para el texto interior; 0 si el recuadro es demasiado angosto
+        size_t max_texto = (ancho > 4) ? (size_t)(ancho - 4) : 0;
+
         char info_line[256];
         snprintf(info_line, 256, "Usuario: %s | Tipo: ", usr->user);
 
@@ -168,24 +172,24 @@ void dibujar_recuadro_usuario_horizontal(int x, int y, int ancho, USUARIO *usr, 
         else strcat(info_line, "Desconocido"); // En caso de un tipo no válido
 
         // Truncar si es muy largo
-        if(strlen(info_line) > ancho-4) {
-            info_line[ancho-4] = '\0';
+        if(strlen(info_line) > max_texto) {
+            info_line[max_texto] = '\0';
         }
         mvprintw(y+2, x+2, "%s", info_line);
 
         // Línea 3: Correo
         char mail_line[256];
         snprintf(mail_line, 256, "Correo: %s", usr->mail);
-        if(strlen(mail_line) > ancho-4) {
-            mail_line[ancho-4] = '\0';
+        if(strlen(mail_line) > max_texto) {
+            mail_line[max_texto] = '\0';
         }
         mvprintw(y+3, x+2, "%s", mail_line);
 
         // Línea 4: Teléfono
         char telf_line[256];
         snprintf(telf_line, 256, "Telefono: %s", usr->telf);
-        if(strlen(telf_line) > ancho-4) {
-            telf_line[ancho-4] = '\0';
+        if(strlen(telf_line) > max_texto) {
+            telf_line[max_texto] = '\0';
         }
         mvprintw(y+4, x+2, "%s", telf_line);
 
@@ -1746,11 +1750,15 @@ void dibujar_recuadro_pedido_horizontal(int x, int y, int ancho, PedidoMsg *pedi
 
         // Línea 2: Mesa y Mesero
         attron(COLOR_PAIR(10));
+
+        // Ancho util para el texto interior; 0 si el recuadro es demasiado angosto
+        size_t max_texto = (ancho > 4) ? (size_t)(ancho - 4) : 0;
+
         char info_line[256];
         snprintf(info_line, 256, "Mesa: %s | Mesero: %s", pedido->mesa, pedido->mesero);
 
-        if(strlen(info_line) > ancho-4) {
-            info_line[ancho-4] = '\0';
+        if(strlen(info_line) > max_texto) {
+            info_line[max_texto] = '\0';
         }
         mvprintw(y+2, x+2, "%s", info_line);
 
@@ -1776,8 +1784,8 @@ void dibujar_recuadro_pedido_horizontal(int x, int y, int ancho, PedidoMsg *pedi
             }
         }
 
-        if(strlen(items_line) > ancho-4) {
-            items_line[ancho-4] = '\0';
+        if(strlen(items_line) > max_texto) {
+            items_line[max_texto] = '\0';
         }
         mvprintw(y+3, x+2, "%s", items_line);
         attroff(COLOR_PAIR(10));
@@ -3485,6 +3493,7 @@ void mostrar_menu_usuarios() {
 
 // Función principal de la interfaz de administrador
 void interfaz_admin_ejecutar(USUARIO *usuario_logueado) {
+    (void)usuario_logueado; // El menu de admin aun no muestra al usuario en sesion
     // Saltar el mensaje de bienvenida y entrar directamente al menú
     // Mostrar menú principal de administrador
     mostrar_menu_principal();

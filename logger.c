@@ -159,6 +159,7 @@ void obtener_timestamp_formateado(time_t timestamp, char* buffer, int size) {
 
 // Hilo para logging de autenticación
 void* hilo_logger_auth(void* arg) {
+    (void)arg; // Requerido por la firma de pthread_create, no se usa
     FILE* archivo = NULL;
     
     printf("Hilo de logging de autenticacion iniciado (ID: %ld)\n", pthread_self());
@@ -209,6 +210,7 @@ void* hilo_logger_auth(void* arg) {
 
 // Hilo para logging de cocina
 void* hilo_logger_cocina(void* arg) {
+    (void)arg; // Requerido por la firma de pthread_create, no se usa
     FILE* archivo = NULL;
     
     printf("Hilo de logging de cocina iniciado (ID: %ld)\n", pthread_self());

@@ -69,7 +69,8 @@ void up(int semid) {
 }
 
 // Función para limpiar recursos al salir
-void limpiar_recursos(int signal) {
+void limpiar_recursos(int sig) {
+    (void)sig; // Requerido por la firma del manejador de senal, no se usa
     printf("\n\n========================================\n");
     printf("Cerrando servidor...\n");
     

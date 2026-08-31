@@ -1,7 +1,7 @@
 # Makefile para Sistema de Comandas
 
 CC = gcc
-CFLAGS = -Wall -g
+CFLAGS = -Wall -Wextra -g
 LIBS_NCURSES = -lncurses
 LIBS_CRYPTO = -lssl -lcrypto
 LIBS_PTHREAD = -lpthread
@@ -85,7 +85,7 @@ clean:
 
 # Limpiar todo incluyendo datos
 cleanall: clean
-	rm -f usuarios pedidos inventario producto_ingrediente *.log
+	rm -f usuarios productos pedidos inventario producto_ingrediente *.log
 
 datauser:
 	# Datos de productos
