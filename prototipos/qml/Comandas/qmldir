@@ -1,0 +1,23 @@
+module Comandas
+singleton Tema 1.0 Tema.qml
+singleton Avisos 1.0 Avisos.qml
+singleton Api 1.0 ApiSimulada.qml
+Aviso 1.0 Aviso.qml
+Etiqueta 1.0 Etiqueta.qml
+ChipEstado 1.0 ChipEstado.qml
+Encabezado 1.0 Encabezado.qml
+TarjetaProducto 1.0 TarjetaProducto.qml
+LineaOrden 1.0 LineaOrden.qml
+TarjetaRonda 1.0 TarjetaRonda.qml
+DialogoConfirmar 1.0 DialogoConfirmar.qml
+DialogoConfirmarOrden 1.0 DialogoConfirmarOrden.qml
+DialogoIngrediente 1.0 DialogoIngrediente.qml
+PantallaLogin 1.0 PantallaLogin.qml
+PantallaMesero 1.0 PantallaMesero.qml
+VistaTomarOrden 1.0 VistaTomarOrden.qml
+VistaMisOrdenes 1.0 VistaMisOrdenes.qml
+PantallaCocina 1.0 PantallaCocina.qml
+PantallaAdmin 1.0 PantallaAdmin.qml
+AdminIngredientes 1.0 AdminIngredientes.qml
+PantallaPendiente 1.0 PantallaPendiente.qml
+Capturas 1.0 Capturas.qml
