@@ -893,7 +893,7 @@ QtObject {
             return "La fecha de nacimiento está fuera de rango"
         if (!actual && !datos.contrasena)
             return "Escribe una contraseña"
-        if (datos.contrasena && !_contrasenaValida(datos.contrasena))
+        if (datos.contrasena && !Validaciones.contrasenaValida(datos.contrasena))
             return "La contraseña necesita 8 caracteres o más, una mayúscula, una minúscula, un número y 2 símbolos de * / _ - + ."
 
         // El rol va en la clave foránea de cada subtipo con ON UPDATE RESTRICT: no cambia
@@ -931,12 +931,6 @@ QtObject {
                 || _pagos.some(p => p.id_cajero === id || p.id_mesero_propina === id))
             return u.nombre + " tiene mesas, comandas o pagos registrados; no se puede eliminar"
         return ""
-    }
-
-    // Las mismas reglas que validar_password de usuario.c
-    function _contrasenaValida(contrasena) {
-        return contrasena.length >= 8 && /[0-9]/.test(contrasena) && /[A-Z]/.test(contrasena) && /[a-z]/.test(contrasena)
-                && (contrasena.match(/[*\/\-_+.]/g) || []).length >= 2
     }
 
     function _fechaValida(texto) {

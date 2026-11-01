@@ -4,7 +4,7 @@
 #   cmake --build build
 #   ./build/cliente_comandas
 cmake_minimum_required(VERSION 3.21)
-project(ClienteComandas LANGUAGES CXX)
+project(ClienteComandas LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -19,7 +19,9 @@ find_package(
 )
 qt_standard_project_setup(REQUIRES 6.8)
 
-qt_add_executable(cliente_comandas main.cpp)
+# validaciones.c es el mismo código del sistema en C, sin copiarlo
+qt_add_executable(cliente_comandas main.cpp ../validaciones.c)
+target_include_directories(cliente_comandas PRIVATE . ..)
 
 # Hacen el trabajo que hacía el qmldir del prototipo: estos tres archivos
 # existen una sola vez y todas las pantallas los comparten.
@@ -34,6 +36,9 @@ set_source_files_properties(
 qt_add_qml_module(
     cliente_comandas
     URI Comandas
+    SOURCES
+    validaciones_qml.cpp
+    validaciones_qml.h
     QML_FILES
     Main.qml
     Comandas/AdminIngredientes.qml
