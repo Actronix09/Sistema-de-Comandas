@@ -8,12 +8,6 @@ Item {
 
     signal salir()
 
-    // Usados por Capturas.qml para recorrer la pantalla sin teclado
-    function mostrarPestana(indice) { pestanas.currentIndex = indice }
-    function demoLlenarCarrito() { vistaOrden.demoLlenarCarrito() }
-    function demoConfirmar() { vistaOrden.confirmar() }
-    function demoEnviar() { vistaOrden.demoEnviar() }
-
     Rectangle {
         anchors.fill: parent
         color: Tema.fondo

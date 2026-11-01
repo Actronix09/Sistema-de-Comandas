@@ -78,11 +78,6 @@ Item {
         })
     }
 
-    // Para Capturas.qml
-    function demoNuevo() {
-        dialogo.abrirNuevo()
-    }
-
     Component.onCompleted: cargar()
 
     Connections {

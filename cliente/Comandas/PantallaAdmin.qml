@@ -17,13 +17,6 @@ Item {
             interna.push(cPendiente, { clave: clave })
     }
 
-    // Para Capturas.qml
-    function demoNuevoIngrediente() {
-        const pagina = interna.currentItem as AdminIngredientes
-        if (pagina)
-            pagina.demoNuevo()
-    }
-
     Rectangle {
         anchors.fill: parent
         color: Tema.fondo
@@ -123,7 +116,7 @@ Item {
                                     }
                                     Item { Layout.fillWidth: true }
                                     Etiqueta {
-                                        texto: seccion.modelData.lista ? "Listo en el prototipo" : "Por construir"
+                                        texto: seccion.modelData.lista ? "Listo" : "Por construir"
                                         tono: seccion.modelData.lista ? Tema.exito : Tema.advertencia
                                     }
                                 }

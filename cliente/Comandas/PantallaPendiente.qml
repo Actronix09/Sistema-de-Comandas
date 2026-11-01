@@ -188,7 +188,7 @@ Item {
                     Label {
                         Layout.fillWidth: true
                         Layout.topMargin: 6
-                        text: "Mientras no exista el servidor, agrégalas a ApiSimulada.qml con la misma forma {codigo, mensaje, datos}."
+                        text: "Mientras no exista el servidor, agrégalas a Api.qml con la misma forma {codigo, mensaje, datos}."
                         color: Tema.textoSuave
                         wrapMode: Text.WordWrap
                     }

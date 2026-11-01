@@ -160,20 +160,6 @@ Item {
         })
     }
 
-    // Para Capturas.qml
-    function demoLlenarCarrito() {
-        for (const id of [3, 7, 6, 6])   // Pasta Alfredo, Margarita y 2 cervezas
-            agregarPorId(id)
-        const i = indiceEnCarrito(3)
-        if (i >= 0)
-            carrito.setProperty(i, "detalles", "sin queso")
-        versionCarrito++
-    }
-
-    function demoEnviar() {
-        dialogo.aceptar()
-    }
-
     Component.onCompleted: cargar()
 
     Connections {
