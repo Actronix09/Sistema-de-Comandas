@@ -7,7 +7,7 @@ LIBS_CRYPTO = -lssl -lcrypto
 LIBS_PTHREAD = -lpthread
 
 # Archivos objeto comunes
-OBJ_USUARIO = usuario.o
+OBJ_USUARIO = usuario.o validaciones.o
 OBJ_PRODUCTOS = productos.o
 OBJ_PEDIDOS = pedidos.o
 OBJ_INVENTARIO = inventario.o
@@ -55,6 +55,9 @@ Cliente.o: Cliente.c
 
 usuario.o: usuario.c usuario.h
 	$(CC) $(CFLAGS) -c usuario.c
+
+validaciones.o: validaciones.c validaciones.h usuario.h
+	$(CC) $(CFLAGS) -c validaciones.c
 
 productos.o: productos.c productos.h
 	$(CC) $(CFLAGS) -c productos.c
