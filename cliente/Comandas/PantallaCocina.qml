@@ -5,6 +5,8 @@ import QtQuick.Layouts
 
 // "=== SISTEMA DE COCINA ===" convertido en tablero de tres columnas.
 // Cada estado se avanza tocando su chip o los botones Iniciar y Lista.
+// En pantallas angostas se ve una columna a la vez: los contadores de arriba
+// sirven de pestañas.
 Item {
     id: pantalla
 
@@ -14,6 +16,8 @@ Item {
     property string estacion: Api.usuarioActual && Api.usuarioActual.estacion_asignada
                               ? Api.usuarioActual.estacion_asignada : "todas"
     property date ahora: new Date()
+    readonly property bool compacta: width < 760
+    property string columnaVisible: "pendiente"
 
     readonly property var columnas: [
         { estado: "pendiente", titulo: "Pendientes" },
@@ -99,7 +103,7 @@ Item {
 
             ComboBox {
                 id: comboEstacion
-                implicitWidth: 190
+                implicitWidth: pantalla.compacta ? 150 : 190
                 model: [
                     { texto: "Cocina", valor: "cocina" },
                     { texto: "Bar", valor: "bar" },
@@ -112,9 +116,10 @@ Item {
             }
             Switch {
                 id: interruptor
-                text: "Simular pedidos"
+                text: pantalla.compacta ? "Simular" : "Simular pedidos"
             }
             Button {
+                visible: !pantalla.compacta
                 text: "Actualizar"
                 flat: true
                 onClicked: pantalla.cargar()
@@ -123,8 +128,8 @@ Item {
 
         RowLayout {
             Layout.fillWidth: true
-            Layout.margins: Tema.margen
-            spacing: Tema.espacio
+            Layout.margins: pantalla.compacta ? Tema.espacio : Tema.margen
+            spacing: pantalla.compacta ? 6 : Tema.espacio
 
             Repeater {
                 model: pantalla.columnas
@@ -132,40 +137,58 @@ Item {
                     id: contador
                     required property var modelData
                     readonly property int cuantas: pantalla.rondasEn(modelData.estado).length
+                    readonly property bool elegido: pantalla.compacta && pantalla.columnaVisible === modelData.estado
+                    Layout.fillWidth: pantalla.compacta
+                    Layout.preferredWidth: pantalla.compacta ? 1 : -1
                     implicitWidth: filaContador.implicitWidth + 32
-                    implicitHeight: 56
+                    implicitHeight: pantalla.compacta ? 64 : 56
                     radius: Tema.radio
                     color: Tema.superficie
-                    border.color: Tema.borde
+                    border.width: elegido ? 2 : 1
+                    border.color: elegido ? Tema.colorEstado(modelData.estado) : Tema.borde
 
-                    RowLayout {
+                    // En angosto, cada contador elige la columna que se ve
+                    MouseArea {
+                        anchors.fill: parent
+                        enabled: pantalla.compacta
+                        onClicked: pantalla.columnaVisible = contador.modelData.estado
+                    }
+
+                    GridLayout {
                         id: filaContador
                         anchors.centerIn: parent
-                        spacing: 10
+                        columns: pantalla.compacta ? 1 : 2
+                        columnSpacing: 10
+                        rowSpacing: 0
                         Label {
+                            Layout.alignment: Qt.AlignHCenter
                             text: contador.cuantas
                             color: Tema.colorEstado(contador.modelData.estado)
-                            font.pixelSize: 28
+                            font.pixelSize: pantalla.compacta ? 22 : 28
                             font.bold: true
                         }
                         Label {
+                            Layout.alignment: Qt.AlignHCenter
                             text: contador.modelData.titulo
                             color: Tema.textoSuave
-                            font.pixelSize: Tema.letraMediana
+                            font.pixelSize: pantalla.compacta ? Tema.letraChica : Tema.letraMediana
                         }
                     }
                 }
             }
 
-            Item { Layout.fillWidth: true }
+            Item {
+                visible: !pantalla.compacta
+                Layout.fillWidth: true
+            }
         }
 
         RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.leftMargin: Tema.margen
-            Layout.rightMargin: Tema.margen
-            Layout.bottomMargin: Tema.margen
+            Layout.leftMargin: pantalla.compacta ? Tema.espacio : Tema.margen
+            Layout.rightMargin: pantalla.compacta ? Tema.espacio : Tema.margen
+            Layout.bottomMargin: pantalla.compacta ? Tema.espacio : Tema.margen
             spacing: Tema.margen
 
             Repeater {
@@ -174,6 +197,7 @@ Item {
                     id: columna
                     required property var modelData
                     readonly property var tarjetas: pantalla.rondasEn(modelData.estado)
+                    visible: !pantalla.compacta || pantalla.columnaVisible === modelData.estado
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Layout.preferredWidth: 1   // las tres columnas del mismo ancho

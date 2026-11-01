@@ -5,6 +5,8 @@ import QtQuick.Layouts
 // Barra superior de las pantallas con sesión: marca, evento en curso,
 // controles propios de la pantalla, reloj, usuario y "Cerrar sesión".
 // Lo que se declare dentro de Encabezado { ... } aparece junto al evento.
+// En pantallas angostas se ocultan el reloj y el nombre, y los controles de la
+// pantalla bajan a una segunda fila.
 Rectangle {
     id: encabezado
 
@@ -14,8 +16,10 @@ Rectangle {
 
     property var evento: null
     property date ahora: new Date()
+    // También se compacta si los controles de la pantalla no dejan sitio al resto
+    readonly property bool compacta: width < 760 || width - zonaExtra.implicitWidth < 700
 
-    implicitHeight: 64
+    implicitHeight: rejilla.implicitHeight
     color: Tema.superficie
 
     Component.onCompleted: Api.eventoEnCurso(function (r) {
@@ -38,13 +42,20 @@ Rectangle {
         color: Tema.borde
     }
 
-    RowLayout {
-        anchors.fill: parent
+    GridLayout {
+        id: rejilla
+        anchors.left: parent.left
+        anchors.right: parent.right
         anchors.leftMargin: Tema.margen
         anchors.rightMargin: Tema.margen
-        spacing: Tema.espacio
+        columnSpacing: Tema.espacio
+        rowSpacing: 0
 
         Rectangle {
+            Layout.row: 0
+            Layout.column: 0
+            Layout.topMargin: 14
+            Layout.bottomMargin: 14
             implicitWidth: 36
             implicitHeight: 36
             radius: 10
@@ -59,6 +70,8 @@ Rectangle {
         }
 
         ColumnLayout {
+            Layout.row: 0
+            Layout.column: 1
             spacing: 0
             Label {
                 text: "Comandas"
@@ -75,6 +88,8 @@ Rectangle {
 
         // Se oculta si no cabe junto a los controles de la pantalla
         Etiqueta {
+            Layout.row: 0
+            Layout.column: 2
             visible: encabezado.evento !== null && encabezado.width - zonaExtra.implicitWidth > 900
             Layout.leftMargin: Tema.espacio
             implicitHeight: 28
@@ -87,19 +102,35 @@ Rectangle {
 
         RowLayout {
             id: zonaExtra
-            Layout.leftMargin: Tema.espacio
+            Layout.row: encabezado.compacta ? 1 : 0
+            Layout.column: encabezado.compacta ? 0 : 3
+            Layout.columnSpan: encabezado.compacta ? 8 : 1
+            Layout.fillWidth: encabezado.compacta
+            Layout.leftMargin: encabezado.compacta ? 0 : Tema.espacio
+            Layout.bottomMargin: encabezado.compacta && children.length > 0 ? 8 : 0
+            visible: children.length > 0
             spacing: Tema.espacio
         }
 
-        Item { Layout.fillWidth: true }
+        Item {
+            Layout.row: 0
+            Layout.column: 4
+            Layout.fillWidth: true
+        }
 
         Label {
+            Layout.row: 0
+            Layout.column: 5
+            visible: !encabezado.compacta
             text: Qt.formatTime(encabezado.ahora, "HH:mm")
             color: Tema.textoSuave
             font.pixelSize: Tema.letraMediana
         }
 
         ColumnLayout {
+            Layout.row: 0
+            Layout.column: 6
+            visible: !encabezado.compacta
             spacing: 0
             Layout.maximumWidth: 200
             Label {
@@ -119,7 +150,9 @@ Rectangle {
         }
 
         Button {
-            text: "Cerrar sesión"
+            Layout.row: 0
+            Layout.column: 7
+            text: encabezado.compacta ? "Salir" : "Cerrar sesión"
             flat: true
             onClicked: encabezado.salir()
         }

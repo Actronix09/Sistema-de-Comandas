@@ -2,6 +2,8 @@ import QtQuick
 import QtQuick.Controls
 
 // Píldora de texto con un tono de color (categorías, folios, contadores).
+// Si el layout le da menos ancho del que pide, recorta el texto con "…".
+// Para eso, dentro de un RowLayout usa Layout.fillWidth y Layout.maximumWidth: implicitWidth.
 Rectangle {
     id: etiqueta
 
@@ -18,7 +20,11 @@ Rectangle {
 
     Label {
         id: rotulo
-        anchors.centerIn: parent
+        anchors.verticalCenter: parent.verticalCenter
+        x: 7
+        width: etiqueta.width - 14
+        horizontalAlignment: Text.AlignHCenter
+        elide: Text.ElideRight
         text: etiqueta.texto
         color: etiqueta.solida ? Tema.textoSobreAcento : etiqueta.tono
         font.pixelSize: 11

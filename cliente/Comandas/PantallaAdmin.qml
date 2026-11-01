@@ -49,7 +49,7 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
                 anchors.topMargin: 40
-                width: Math.min(960, parent.width - 64)
+                width: Math.min(960, parent.width - (parent.width < 640 ? 24 : 64))
                 spacing: Tema.margen
 
                 Label {
@@ -66,7 +66,7 @@ Item {
                 GridLayout {
                     Layout.fillWidth: true
                     Layout.topMargin: 8
-                    columns: 2
+                    columns: parent.width < 560 ? 1 : 2
                     columnSpacing: Tema.margen
                     rowSpacing: Tema.margen
 

@@ -18,6 +18,8 @@ Item {
     property var visibles: []
     property bool cargando: false
     property var porEliminar: null
+    // En angosto se oculta "Se usa en" y Editar/Eliminar pasan a un menú
+    readonly property bool compacta: width < 760
 
     function cargar() {
         cargando = true
@@ -99,25 +101,33 @@ Item {
                 font.bold: true
             }
             Label {
+                visible: !pagina.compacta
                 text: pagina.ingredientes.length + " registrados"
                 color: Tema.textoSuave
             }
             Item { Layout.fillWidth: true }
+            Button {
+                text: pagina.compacta ? "Nuevo" : "Nuevo ingrediente"
+                highlighted: true
+                onClicked: dialogo.abrirNuevo()
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
             TextField {
                 id: busqueda
-                Layout.preferredWidth: 220
+                Layout.fillWidth: true
+                Layout.maximumWidth: 360
                 placeholderText: "Buscar…"
                 onTextChanged: pagina.filtrar()
             }
+            Item { Layout.fillWidth: true }
             Button {
                 text: "Poner todo en 0"
                 flat: true
                 onClicked: confirmarReinicio.open()
-            }
-            Button {
-                text: "Nuevo ingrediente"
-                highlighted: true
-                onClicked: dialogo.abrirNuevo()
             }
         }
 
@@ -152,20 +162,21 @@ Item {
                             font.bold: true
                         }
                         Label {
-                            Layout.preferredWidth: 250
+                            Layout.preferredWidth: pagina.compacta ? 150 : 250
                             text: "EXISTENCIA"
                             color: Tema.textoSuave
                             font.pixelSize: 11
                             font.bold: true
                         }
                         Label {
+                            visible: !pagina.compacta
                             Layout.preferredWidth: 130
                             text: "SE USA EN"
                             color: Tema.textoSuave
                             font.pixelSize: 11
                             font.bold: true
                         }
-                        Item { Layout.preferredWidth: 190 }
+                        Item { Layout.preferredWidth: pagina.compacta ? 48 : 190 }
                     }
                 }
 
@@ -208,7 +219,7 @@ Item {
                             // Un layout anidado se estira por defecto; con fillWidth: false
                             // conserva su ancho y las columnas quedan alineadas.
                             RowLayout {
-                                Layout.preferredWidth: 250
+                                Layout.preferredWidth: pagina.compacta ? 150 : 250
                                 Layout.fillWidth: false
                                 spacing: 2
                                 ToolButton {
@@ -232,7 +243,7 @@ Item {
                                 }
                                 Etiqueta {
                                     Layout.leftMargin: 6
-                                    visible: fila.modelData.stock < 10
+                                    visible: !pagina.compacta && fila.modelData.stock < 10
                                     texto: fila.modelData.stock === 0 ? "Agotado" : "Bajo"
                                     tono: fila.modelData.stock === 0 ? Tema.peligro : Tema.advertencia
                                 }
@@ -240,6 +251,7 @@ Item {
                             }
 
                             Label {
+                                visible: !pagina.compacta
                                 Layout.preferredWidth: 130
                                 text: fila.modelData.usos === 0 ? "—"
                                       : fila.modelData.usos + (fila.modelData.usos === 1 ? " producto" : " productos")
@@ -247,6 +259,7 @@ Item {
                             }
 
                             RowLayout {
+                                visible: !pagina.compacta
                                 Layout.preferredWidth: 190
                                 Layout.fillWidth: false
                                 spacing: 4
@@ -259,6 +272,24 @@ Item {
                                     text: "Eliminar"
                                     flat: true
                                     onClicked: pagina.pedirEliminar(fila.modelData)
+                                }
+                            }
+
+                            ToolButton {
+                                visible: pagina.compacta
+                                text: "⋮"
+                                font.pixelSize: 18
+                                onClicked: menuFila.open()
+                                Menu {
+                                    id: menuFila
+                                    MenuItem {
+                                        text: "Editar"
+                                        onTriggered: dialogo.abrirEdicion(fila.modelData)
+                                    }
+                                    MenuItem {
+                                        text: "Eliminar"
+                                        onTriggered: pagina.pedirEliminar(fila.modelData)
+                                    }
                                 }
                             }
                         }

@@ -35,12 +35,15 @@ Rectangle {
         spacing: 6
 
         RowLayout {
+            Layout.fillWidth: true
             spacing: 6
             Etiqueta {
                 texto: Tema.nombreCategoria(tarjeta.producto.categoria)
                 tono: Tema.colorCategoria(tarjeta.producto.categoria)
             }
             Etiqueta {
+                Layout.fillWidth: true
+                Layout.maximumWidth: implicitWidth
                 visible: tarjeta.producto.variante_de !== ""
                 texto: "Variante de " + tarjeta.producto.variante_de
                 tono: Tema.textoSuave
@@ -60,6 +63,8 @@ Rectangle {
             color: Tema.texto
             font.pixelSize: 17
             font.bold: true
+            wrapMode: Text.WordWrap
+            maximumLineCount: 2
             elide: Text.ElideRight
         }
 
@@ -86,6 +91,7 @@ Rectangle {
         Item { Layout.fillHeight: true }
 
         RowLayout {
+            Layout.fillWidth: true
             spacing: 4
             Label {
                 text: Tema.dinero(tarjeta.producto.precio)

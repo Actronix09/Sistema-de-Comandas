@@ -16,6 +16,8 @@ Item {
     // Los enlaces que leen el carrito dependen de esta versión, que sube en
     // cada cambio; así las tarjetas y el total se recalculan.
     property int versionCarrito: 0
+    // En pantallas angostas (teléfono) la orden va debajo del catálogo
+    readonly property bool compacta: width < 700
 
     ListModel { id: carrito }
 
@@ -166,43 +168,56 @@ Item {
         function onInventarioCambio() { vista.cargar() }
     }
 
-    RowLayout {
+    GridLayout {
         anchors.fill: parent
-        anchors.margins: Tema.margen
-        spacing: Tema.margen
+        anchors.margins: vista.compacta ? Tema.espacio : Tema.margen
+        columns: vista.compacta ? 1 : 2
+        columnSpacing: Tema.margen
+        rowSpacing: Tema.espacio
 
         // ======================= Catálogo =======================
         ColumnLayout {
+            id: catalogo
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: 10
 
-            RowLayout {
+            GridLayout {
                 Layout.fillWidth: true
-                spacing: 6
-                Repeater {
-                    model: [
-                        { clave: "todas", texto: "Todos" },
-                        { clave: "alimentos", texto: "Alimentos" },
-                        { clave: "bebidas", texto: "Bebidas" },
-                        { clave: "dulceria", texto: "Dulcería" }
-                    ]
-                    delegate: Button {
-                        id: botonCategoria
-                        required property var modelData
-                        text: botonCategoria.modelData.texto
-                        highlighted: vista.categoria === botonCategoria.modelData.clave
-                        flat: !highlighted
-                        onClicked: {
-                            vista.categoria = botonCategoria.modelData.clave
-                            vista.filtrar()
+                // El buscador baja a otra línea si no caben las categorías a su lado
+                readonly property bool angosta: catalogo.width < 640
+                columns: angosta ? 1 : 2
+                columnSpacing: 6
+                rowSpacing: 4
+
+                // Flow acomoda las categorías en otra línea si no caben
+                Flow {
+                    Layout.fillWidth: true
+                    spacing: 6
+                    Repeater {
+                        model: [
+                            { clave: "todas", texto: "Todos" },
+                            { clave: "alimentos", texto: "Alimentos" },
+                            { clave: "bebidas", texto: "Bebidas" },
+                            { clave: "dulceria", texto: "Dulcería" }
+                        ]
+                        delegate: Button {
+                            id: botonCategoria
+                            required property var modelData
+                            text: botonCategoria.modelData.texto
+                            highlighted: vista.categoria === botonCategoria.modelData.clave
+                            flat: !highlighted
+                            onClicked: {
+                                vista.categoria = botonCategoria.modelData.clave
+                                vista.filtrar()
+                            }
                         }
                     }
                 }
-                Item { Layout.fillWidth: true }
                 TextField {
                     id: busqueda
-                    Layout.preferredWidth: 280
+                    Layout.fillWidth: parent.angosta
+                    Layout.preferredWidth: parent.angosta ? -1 : 280
                     placeholderText: "Buscar producto o ingrediente…"
                     onTextChanged: vista.filtrar()
                 }
@@ -214,9 +229,9 @@ Item {
                 Layout.fillHeight: true
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
-                readonly property int columnas: Math.max(1, Math.floor(width / 250))
+                readonly property int columnas: Math.max(1, Math.floor(width / 230))
                 cellWidth: Math.floor(width / columnas)
-                cellHeight: 214
+                cellHeight: 244
                 model: vista.visibles
                 ScrollBar.vertical: ScrollBar {}
 
@@ -255,8 +270,10 @@ Item {
 
         // ======================= Orden actual =======================
         Rectangle {
-            Layout.preferredWidth: 370
-            Layout.fillHeight: true
+            Layout.fillWidth: vista.compacta
+            Layout.preferredWidth: vista.compacta ? -1 : Math.min(370, Math.round(vista.width * 0.38))
+            Layout.fillHeight: !vista.compacta
+            Layout.preferredHeight: vista.compacta ? Math.round(vista.height * 0.42) : -1
             radius: Tema.radio
             color: Tema.superficie
             border.color: Tema.borde

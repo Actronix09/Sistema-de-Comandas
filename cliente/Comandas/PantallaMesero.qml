@@ -27,7 +27,7 @@ Item {
             id: pestanas
             Layout.leftMargin: Tema.margen
             Layout.topMargin: 8
-            Layout.preferredWidth: 420
+            Layout.preferredWidth: Math.min(420, pantalla.width - 2 * Tema.margen)
             TabButton { text: "Tomar nueva orden" }
             TabButton { text: "Mis órdenes" }
         }

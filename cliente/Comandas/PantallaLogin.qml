@@ -67,6 +67,8 @@ Item {
         Rectangle {
             Layout.fillHeight: true
             Layout.preferredWidth: pantalla.width * 0.44
+            // En pantallas angostas solo queda el formulario
+            visible: pantalla.width >= 760
             gradient: Gradient {
                 GradientStop { position: 0.0; color: Tema.acento }
                 GradientStop { position: 1.0; color: Qt.darker(Tema.acento, 1.7) }
@@ -147,7 +149,7 @@ Item {
                 Item { Layout.fillHeight: true }
 
                 Label {
-                    text: "Prototipo · datos simulados en memoria"
+                    text: "Datos simulados en memoria"
                     color: Qt.rgba(1, 1, 1, 0.6)
                     font.pixelSize: Tema.letraChica
                 }
@@ -161,7 +163,7 @@ Item {
 
             ColumnLayout {
                 anchors.centerIn: parent
-                width: Math.min(420, parent.width - 64)
+                width: Math.min(420, parent.width - (parent.width < 480 ? 32 : 64))
                 spacing: 10
 
                 Label {

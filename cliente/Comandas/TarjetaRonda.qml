@@ -50,6 +50,7 @@ Rectangle {
         spacing: 8
 
         RowLayout {
+            Layout.fillWidth: true
             spacing: 8
             Label {
                 text: "Mesa " + tarjeta.ronda.numero_mesa
@@ -58,6 +59,8 @@ Rectangle {
                 font.bold: true
             }
             Etiqueta {
+                Layout.fillWidth: true
+                Layout.maximumWidth: implicitWidth
                 texto: "Cuenta " + tarjeta.ronda.folio
                 tono: Tema.textoSuave
             }
@@ -72,9 +75,11 @@ Rectangle {
         }
 
         Label {
+            Layout.fillWidth: true
             text: tarjeta.ronda.mesero + " · " + Tema.hora(tarjeta.ronda.fecha_hora)
             color: Tema.textoSuave
             font.pixelSize: Tema.letraChica
+            elide: Text.ElideRight
         }
 
         Rectangle {
@@ -108,7 +113,7 @@ Rectangle {
                         color: fila.modelData.estado === "cancelada" ? Tema.textoSuave : Tema.texto
                         font.pixelSize: 15
                         font.strikeout: fila.modelData.estado === "cancelada"
-                        elide: Text.ElideRight
+                        wrapMode: Text.WordWrap
                     }
                     Label {
                         Layout.fillWidth: true
@@ -137,6 +142,7 @@ Rectangle {
         }
 
         RowLayout {
+            Layout.fillWidth: true
             visible: tarjeta.modo === "cocina" && tarjeta.porTerminar.length > 0
             spacing: 8
             Item { Layout.fillWidth: true }
@@ -154,13 +160,15 @@ Rectangle {
         }
 
         RowLayout {
+            Layout.fillWidth: true
             visible: tarjeta.modo === "mesero"
             spacing: 8
             Label {
+                Layout.fillWidth: true
                 text: "Total de la ronda: " + Tema.dinero(tarjeta.ronda.total)
                 color: Tema.textoSuave
+                wrapMode: Text.WordWrap
             }
-            Item { Layout.fillWidth: true }
             Button {
                 visible: tarjeta.listas.length > 1
                 text: "Entregar todo lo listo"

@@ -31,12 +31,13 @@ Rectangle {
         spacing: 4
 
         RowLayout {
+            Layout.fillWidth: true
             Label {
                 Layout.fillWidth: true
                 text: linea.nombre
                 color: Tema.texto
                 font.bold: true
-                elide: Text.ElideRight
+                wrapMode: Text.WordWrap
             }
             Label {
                 text: Tema.dinero(linea.precio * linea.cantidad)
@@ -46,6 +47,7 @@ Rectangle {
         }
 
         RowLayout {
+            Layout.fillWidth: true
             spacing: 2
             ToolButton {
                 text: "−"
