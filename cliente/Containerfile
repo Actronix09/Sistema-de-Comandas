@@ -1,0 +1,21 @@
+# Se construye desde la raíz del repo porque usa validaciones.c
+FROM docker.io/library/debian:trixie-slim AS compilacion
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cmake g++ ninja-build qt6-base-dev qt6-declarative-dev qt6-declarative-dev-tools
+COPY usuario.h validaciones.c validaciones.h /src/
+COPY cliente /src/cliente
+RUN cmake -S /src/cliente -B /src/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+    && cmake --build /src/build
+
+FROM docker.io/library/debian:trixie-slim
+# Mesa dibuja por software para no depender de la tarjeta de video del equipo
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    fonts-dejavu-core libegl1 libgl1-mesa-dri qml6-module-qtqml-workerscript \
+    qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-layouts \
+    qml6-module-qtquick-templates qml6-module-qtquick-window qt6-wayland \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=compilacion /src/build/cliente_comandas /usr/local/bin/cliente_comandas
+RUN install -d -m 700 /run/comandas
+ENV QT_FORCE_STDERR_LOGGING=1 LC_ALL=C.UTF-8 QT_QPA_PLATFORM=wayland \
+    XDG_RUNTIME_DIR=/run/comandas WAYLAND_DISPLAY=wayland-0 HOME=/tmp
+CMD ["cliente_comandas"]

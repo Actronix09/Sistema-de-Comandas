@@ -60,6 +60,18 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Es una ventana en el escritorio del equipo: usa el socket de Wayland del anfitrión
+  cliente:
+    profiles: [cliente]
+    build:
+      context: .
+      dockerfile: cliente/Containerfile
+    image: localhost/comandas-cliente
+    volumes:
+      - type: bind
+        source: ${XDG_RUNTIME_DIR:?se necesita una sesión gráfica}/${WAYLAND_DISPLAY:?se necesita una sesión de Wayland}
+        target: /run/comandas/wayland-0
+
 volumes:
   comandas-pgdata:
     name: comandas-pgdata
