@@ -36,8 +36,9 @@ import QtQuick
 //      detalleCuenta        nueva, por definir
 //      registrarPago        OP_REGISTRAR_PAGO (nueva)
 //      cerrarCuenta         OP_CERRAR_CUENTA (nueva)
-//  Las señales (comandasCambiaron, cuentasCambiaron, inventarioCambio) serán
-//  los avisos que el servidor manda por el WebSocket.
+//  Las señales (comandasCambiaron, cuentasCambiaron, inventarioCambio y
+//  ordenLista) serán los avisos que el servidor manda por el WebSocket;
+//  ordenLista es COMANDA_LISTA, que solo le llega al mesero de esa orden.
 // ---------------------------------------------------------------------------
 QtObject {
     id: api
@@ -45,6 +46,19 @@ QtObject {
     signal comandasCambiaron()
     signal cuentasCambiaron()
     signal inventarioCambio()
+    // datos: { id_mesero, numero_mesa, cuenta, productos: ["1× Margarita", ...] }
+    signal ordenLista(var datos)
+
+    // Mientras un mesero tiene la sesión abierta, una cocina simulada termina
+    // sus órdenes de vez en cuando para que se vea el aviso. En el sistema real
+    // esto lo hace cocina desde su propia pantalla.
+    property bool simularCocina: true
+    property Timer _cocinaSimulada: Timer {
+        interval: 30000
+        repeat: true
+        running: api.simularCocina && api.usuarioActual !== null && api.usuarioActual.rol === "mesero"
+        onTriggered: api._terminarOrdenSimulada()
+    }
 
     // Usuario con sesión iniciada (null si no hay sesión)
     property var usuarioActual: null
@@ -341,18 +355,60 @@ QtObject {
                 return
             }
         }
+        _marcarEstado(elegidas, nuevoEstado, usuarioActual.id_usuario)
+        const n = elegidas.length
+        _responder(cb, _ok({ actualizadas: n }, n + (n === 1 ? " comanda" : " comandas") + " → " + Tema.nombreEstado(nuevoEstado)))
+    }
+
+    function _marcarEstado(elegidas, nuevoEstado, idUsuario) {
         for (const c of elegidas) {
             c.estado = nuevoEstado
             // ck_comanda_preparacion: fuera de pendiente/cancelada debe haber estación
             if ((nuevoEstado === "en_preparacion" || nuevoEstado === "lista") && c.id_bar_cocina === null)
-                c.id_bar_cocina = usuarioActual.id_usuario
+                c.id_bar_cocina = idUsuario
             // ck_comanda_cancelacion: cancelada si y solo si la canceló un cajero/admin
             if (nuevoEstado === "cancelada")
-                c.id_cajero_cancela = usuarioActual.id_usuario
+                c.id_cajero_cancela = idUsuario
         }
         comandasCambiaron()
-        const n = elegidas.length
-        _responder(cb, _ok({ actualizadas: n }, n + (n === 1 ? " comanda" : " comandas") + " → " + Tema.nombreEstado(nuevoEstado)))
+        if (nuevoEstado === "lista")
+            _avisarListas(elegidas)
+    }
+
+    // Un aviso por ronda (cuenta + envío) para el mesero que la levantó
+    function _avisarListas(comandas) {
+        const rondas = {}
+        for (const c of comandas) {
+            const clave = c.secuencial + "|" + c.fecha_hora + "|" + c.id_mesero
+            if (!rondas[clave]) {
+                const cuenta = _cuenta(c.secuencial)
+                rondas[clave] = { id_mesero: c.id_mesero, numero_mesa: cuenta.numero_mesa,
+                                  cuenta: _nombreCuenta(cuenta), conteo: {} }
+            }
+            const nombre = _producto(c.id_producto).nombre
+            rondas[clave].conteo[nombre] = (rondas[clave].conteo[nombre] || 0) + 1
+        }
+        for (const k in rondas) {
+            const r = rondas[k]
+            r.productos = Object.keys(r.conteo).map(n => r.conteo[n] + "× " + n)
+            delete r.conteo
+            ordenLista(_copia(r))
+        }
+    }
+
+    // La ronda más antigua del mesero con algo por terminar pasa completa a "lista"
+    function _terminarOrdenSimulada() {
+        const yo = usuarioActual.id_usuario
+        const porTerminar = _comandas.filter(c => c.id_mesero === yo
+                                             && (c.estado === "pendiente" || c.estado === "en_preparacion"))
+        if (porTerminar.length === 0)
+            return
+        const primera = porTerminar.reduce((a, b) => a.fecha_hora <= b.fecha_hora ? a : b)
+        const ronda = porTerminar.filter(c => c.secuencial === primera.secuencial && c.fecha_hora === primera.fecha_hora)
+        for (const c of ronda)    // la estación según la categoría: Iván (bar) o Rosa (cocina)
+            if (c.id_bar_cocina === null)
+                c.id_bar_cocina = estacionDe(_producto(c.id_producto).categoria) === "bar" ? 4 : 3
+        _marcarEstado(ronda, "lista", null)
     }
 
     // Imita a otro mesero enviando una orden desde otra computadora; en el
