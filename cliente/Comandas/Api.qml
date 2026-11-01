@@ -36,6 +36,8 @@ import QtQuick
 //      detalleCuenta        nueva, por definir
 //      registrarPago        OP_REGISTRAR_PAGO (nueva)
 //      cerrarCuenta         OP_CERRAR_CUENTA (nueva)
+//      cancelarCuenta       OP_CANCELAR_CUENTA (nueva)
+//      cancelarComandas     OP_ELIMINAR_PEDIDO (ahora cancela, no borra)
 //      listarUsuarios       OP_LISTAR_USUARIOS
 //      guardarUsuario       OP_CREAR_USUARIO   o   OP_MODIFICAR_USUARIO
 //      eliminarUsuario      OP_ELIMINAR_USUARIO
@@ -188,10 +190,11 @@ QtObject {
     ]
 
     // Transiciones permitidas y quién puede hacerlas. En el sistema en C no se
-    // validaban (2 → 0 → 2 descontaba el stock dos veces); aquí sí.
+    // validaban (2 → 0 → 2 descontaba el stock dos veces); aquí sí. Cancelar no
+    // está aquí porque solo lo hace un administrador: ver cancelarComandas.
     readonly property var _transiciones: ({
-        pendiente: ["en_preparacion", "lista", "cancelada"],
-        en_preparacion: ["lista", "cancelada"],
+        pendiente: ["en_preparacion", "lista"],
+        en_preparacion: ["lista"],
         lista: ["entregada"],
         entregada: [],
         cancelada: []
@@ -199,8 +202,7 @@ QtObject {
     readonly property var _rolesPorEstado: ({
         en_preparacion: ["bar_cocina"],
         lista: ["bar_cocina"],
-        entregada: ["mesero"],
-        cancelada: ["cajero_admin"]
+        entregada: ["mesero"]
     })
 
     Component.onCompleted: _cargarComandasIniciales()
@@ -368,6 +370,63 @@ QtObject {
         _marcarEstado(elegidas, nuevoEstado, usuarioActual.id_usuario)
         const n = elegidas.length
         _responder(cb, _ok({ actualizadas: n }, n + (n === 1 ? " comanda" : " comandas") + " → " + Tema.nombreEstado(nuevoEstado)))
+    }
+
+    // Como validar_cambio_estado: se cancela desde cualquier estado y una cancelada
+    // ya no cambia. Además (la base todavía no lo revisa) no se toca una cuenta
+    // cerrada ni se deja saldo a favor, porque no hay forma de registrar devoluciones.
+    function cancelarComandas(ids, cb) {
+        const negado = _exigirAdministrador()
+        if (negado) {
+            _responder(cb, negado)
+            return
+        }
+        const elegidas = _comandas.filter(c => ids.indexOf(c.id_comanda) >= 0)
+        if (elegidas.length === 0) {
+            _responder(cb, _falla("VALIDACION_FALLIDA", "No se indicó ninguna comanda"))
+            return
+        }
+        const porCuenta = {}
+        for (const c of elegidas) {
+            if (c.estado === "cancelada") {
+                _responder(cb, _falla("VALIDACION_FALLIDA", "La comanda " + c.id_comanda + " ya está cancelada"))
+                return
+            }
+            porCuenta[c.secuencial] = (porCuenta[c.secuencial] || 0) + _centavos(c.precio_cobrado)
+        }
+        for (const s in porCuenta) {
+            const secuencial = Number(s)
+            if (_cuenta(secuencial).estado !== "abierta") {
+                _responder(cb, _falla("VALIDACION_FALLIDA", "La cuenta está cerrada; sus comandas ya no se pueden cancelar"))
+                return
+            }
+            if (_saldo(secuencial) < porCuenta[s]) {
+                _responder(cb, _falla("VALIDACION_FALLIDA", "No se puede cancelar: el consumo que queda sería menor que lo ya pagado ("
+                                      + (_centavos(_pagadoCuenta(secuencial)) / 100).toFixed(2) + ")"))
+                return
+            }
+        }
+        _cancelar(elegidas)
+        const n = elegidas.length
+        _responder(cb, _ok({ canceladas: n, saldo: _saldo(elegidas[0].secuencial) / 100 },
+                           n === 1 ? "Se canceló 1 comanda" : "Se cancelaron " + n + " comandas"))
+    }
+
+    // La simulación aparta el stock al crear la orden y la base lo descuenta al
+    // entrar a preparación: una pendiente no consumió nada y lo apartado regresa;
+    // la que ya se empezó a preparar gastó sus ingredientes y no los devuelve.
+    function _cancelar(comandas) {
+        for (const c of comandas) {
+            if (c.estado !== "pendiente" || !c.stock_apartado)
+                continue
+            for (const r of _producto(c.id_producto).receta) {
+                const ingrediente = _ingrediente(r.id_ingrediente)
+                if (ingrediente)
+                    ingrediente.stock += r.cantidad
+            }
+        }
+        _marcarEstado(comandas, "cancelada", usuarioActual.id_usuario)
+        inventarioCambio()
     }
 
     function _marcarEstado(elegidas, nuevoEstado, idUsuario) {
@@ -577,9 +636,13 @@ QtObject {
             const mesa = _mesas.find(m => m.numero_mesa === c.numero_mesa)
             const suyas = _comandas.filter(x => x.secuencial === c.secuencial)
             const ultima = suyas.reduce((m, x) => Math.max(m, x.fecha_hora), 0)
+            const conPagos = _pagos.some(p => p.secuencial === c.secuencial)
             return {
                 secuencial: c.secuencial, numero_mesa: c.numero_mesa, nombre: c.nombre, folio: _folio(c),
                 cuenta: _nombreCuenta(c), estado: c.estado,
+                // ck_cuenta_estado solo admite abierta y cerrada: una cuenta cancelada
+                // es una cerrada sin pagos y sin ninguna comanda viva.
+                cancelada: c.estado === "cerrada" && !conPagos && suyas.every(x => x.estado === "cancelada"),
                 id_mesero: mesa.id_mesero, mesero: _usuario(mesa.id_mesero).nombre,
                 fecha_hora: ultima,
                 total: _centavos(_totalCuenta(c.secuencial)) / 100,
@@ -610,10 +673,11 @@ QtObject {
         for (const x of comandas) {
             let l = lineas.find(y => y.id_producto === x.id_producto && y.estado === x.estado && y.precio === x.precio)
             if (!l) {
-                l = { id_producto: x.id_producto, producto: x.producto, estado: x.estado, precio: x.precio, cantidad: 0 }
+                l = { id_producto: x.id_producto, producto: x.producto, estado: x.estado, precio: x.precio, cantidad: 0, ids: [] }
                 lineas.push(l)
             }
             l.cantidad++
+            l.ids.push(x.id_comanda)
         }
         const pagos = _pagos.filter(p => p.secuencial === secuencial).map(p => ({
             numero_pago: p.numero_pago, monto: p.monto, forma_pago: p.forma_pago,
@@ -700,6 +764,29 @@ QtObject {
         c.estado = "cerrada"
         cuentasCambiaron()
         _responder(cb, _ok(null, "Se cerró la cuenta " + _nombreCuenta(c)))
+    }
+
+    // Sin tocar ck_cuenta_estado: cancela todas sus comandas y la cierra, lo que
+    // tg_cuenta_cierre acepta. Con pagos no se puede, porque quedaría saldo a favor.
+    function cancelarCuenta(secuencial, cb) {
+        const negado = _exigirAdministrador()
+        if (negado) {
+            _responder(cb, negado)
+            return
+        }
+        const c = _cuenta(secuencial)
+        if (!c || c.estado !== "abierta") {
+            _responder(cb, _falla("VALIDACION_FALLIDA", "La cuenta ya está cerrada"))
+            return
+        }
+        if (_pagos.some(p => p.secuencial === secuencial)) {
+            _responder(cb, _falla("VALIDACION_FALLIDA", "La cuenta ya tiene pagos registrados; no se puede cancelar"))
+            return
+        }
+        _cancelar(_comandas.filter(x => x.secuencial === secuencial && x.estado !== "cancelada"))
+        c.estado = "cerrada"
+        cuentasCambiaron()
+        _responder(cb, _ok(null, "Se canceló la cuenta " + _nombreCuenta(c)))
     }
 
     // Bebidas van al bar; alimentos y dulcería a cocina. Es un supuesto: en tu
@@ -905,7 +992,7 @@ QtObject {
                     estado: "pendiente", detalles: String(l.detalles || "").trim().slice(0, 255),
                     numero_evento: _evento.numero_evento, secuencial: cuenta.secuencial,
                     id_mesero: idMesero, id_producto: p.id_producto,
-                    id_bar_cocina: null, id_cajero_cancela: null
+                    id_bar_cocina: null, id_cajero_cancela: null, stock_apartado: true
                 })
                 creadas++
             }

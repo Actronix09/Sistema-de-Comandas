@@ -8,6 +8,7 @@ import QtQuick.Layouts
 // para cobrar y el cierre. En pantallas angostas se ve una cosa a la vez.
 // Las reglas (no cobrar de más, propina ≤ monto, cerrar sin adeudo ni comandas
 // abiertas) las revisa la base; aquí solo se muestran sus mensajes.
+// Solo el nivel administrador ve los botones para cancelar comandas y cuentas.
 Item {
     id: caja
 
@@ -21,7 +22,11 @@ Item {
     property bool ocupada: false
     property string error: ""
 
+    readonly property bool esAdmin: Api.esAdministrador
+    readonly property bool abierta: elegida !== null && elegida.estado === "abierta"
     readonly property bool compacta: width < 760
+    // El panel de detalle puede ser angosto aunque la ventana no lo sea
+    readonly property bool lineaCompacta: desplazableDetalle.width < 520
     readonly property var visibles: cuentas.filter(c => !soloAbiertas || c.estado === "abierta")
     readonly property var grupos: selector.agrupar(visibles)
 
@@ -85,6 +90,40 @@ Item {
     function cerrar() {
         error = ""
         Api.cerrarCuenta(elegida.secuencial, function (r) {
+            if (!caja)
+                return
+            if (r.codigo !== "OK") {
+                caja.error = r.mensaje
+                return
+            }
+            Avisos.exito(r.mensaje)
+        })
+    }
+
+    function cancelarComandas(ids) {
+        error = ""
+        Api.cancelarComandas(ids, function (r) {
+            if (!caja)
+                return
+            if (r.codigo !== "OK") {
+                caja.error = r.mensaje
+                return
+            }
+            Avisos.exito(r.mensaje)
+            campoMonto.text = r.datos.saldo > 0 ? r.datos.saldo.toFixed(2) : ""
+        })
+    }
+
+    function pedirCancelarCuenta() {
+        const vivas = detalle.lineas.filter(l => l.estado !== "cancelada").reduce((n, l) => n + l.cantidad, 0)
+        confirmarCancelarCuenta.mensaje = "La cuenta " + elegida.cuenta + " se cerrará"
+                + (vivas === 0 ? "." : (vivas === 1 ? " y se cancelará su comanda." : " y se cancelarán sus " + vivas + " comandas."))
+        confirmarCancelarCuenta.open()
+    }
+
+    function cancelarCuenta() {
+        error = ""
+        Api.cancelarCuenta(elegida.secuencial, function (r) {
             if (!caja)
                 return
             if (r.codigo !== "OK") {
@@ -224,7 +263,8 @@ Item {
                                         }
                                         Label {
                                             Layout.alignment: Qt.AlignRight
-                                            text: tarjeta.modelData.estado === "abierta" ? Tema.dinero(tarjeta.modelData.saldo) : "Cerrada"
+                                            text: tarjeta.modelData.estado === "abierta" ? Tema.dinero(tarjeta.modelData.saldo)
+                                                                                         : (tarjeta.modelData.cancelada ? "Cancelada" : "Cerrada")
                                             color: tarjeta.modelData.saldo > 0 ? Tema.acento : Tema.textoSuave
                                             font.pixelSize: Tema.letraMediana
                                             font.bold: true
@@ -306,9 +346,9 @@ Item {
                             wrapMode: Text.WordWrap
                         }
                         Etiqueta {
-                            visible: caja.elegida !== null && caja.elegida.estado !== "abierta"
-                            texto: "Cerrada"
-                            tono: Tema.textoSuave
+                            visible: caja.elegida !== null && !caja.abierta
+                            texto: caja.elegida && caja.elegida.cancelada ? "Cancelada" : "Cerrada"
+                            tono: caja.elegida && caja.elegida.cancelada ? Tema.peligro : Tema.textoSuave
                         }
                     }
 
@@ -321,18 +361,24 @@ Item {
                     // Consumo
                     Repeater {
                         model: caja.detalle ? caja.detalle.lineas : []
-                        delegate: RowLayout {
+                        // En angosto el estado y "Cancelar" bajan a una segunda fila
+                        delegate: GridLayout {
                             id: linea
                             required property var modelData
                             Layout.fillWidth: true
-                            spacing: 8
+                            columnSpacing: 8
+                            rowSpacing: 0
                             Label {
+                                Layout.row: 0
+                                Layout.column: 0
                                 Layout.preferredWidth: 30
                                 text: linea.modelData.cantidad + "×"
                                 color: Tema.texto
                                 font.bold: true
                             }
                             Label {
+                                Layout.row: 0
+                                Layout.column: 1
                                 Layout.fillWidth: true
                                 text: linea.modelData.producto
                                 color: linea.modelData.estado === "cancelada" ? Tema.textoSuave : Tema.texto
@@ -340,14 +386,27 @@ Item {
                                 wrapMode: Text.WordWrap
                             }
                             ChipEstado {
+                                Layout.row: caja.lineaCompacta ? 1 : 0
+                                Layout.column: caja.lineaCompacta ? 1 : 2
                                 estado: linea.modelData.estado
                             }
                             Label {
+                                Layout.row: 0
+                                Layout.column: caja.lineaCompacta ? 2 : 3
                                 Layout.preferredWidth: 84
                                 horizontalAlignment: Text.AlignRight
                                 text: linea.modelData.estado === "cancelada" ? "—"
                                       : Tema.dinero(linea.modelData.precio * linea.modelData.cantidad)
                                 color: Tema.texto
+                            }
+                            Button {
+                                Layout.row: caja.lineaCompacta ? 1 : 0
+                                Layout.column: caja.lineaCompacta ? 2 : 4
+                                Layout.alignment: Qt.AlignRight
+                                visible: caja.esAdmin && caja.abierta && linea.modelData.estado !== "cancelada"
+                                text: "Cancelar"
+                                flat: true
+                                onClicked: dialogoCancelar.abrir(linea.modelData)
                             }
                         }
                     }
@@ -489,6 +548,30 @@ Item {
                         }
                     }
 
+                    // Cancelar la cuenta completa
+                    RowLayout {
+                        visible: caja.esAdmin && caja.abierta && caja.detalle !== null
+                        Layout.fillWidth: true
+                        Label {
+                            Layout.fillWidth: true
+                            visible: caja.detalle !== null && caja.detalle.pagos.length > 0
+                            text: "Con pagos registrados no se puede cancelar la cuenta."
+                            color: Tema.textoSuave
+                            font.pixelSize: Tema.letraChica
+                            wrapMode: Text.WordWrap
+                        }
+                        Item {
+                            Layout.fillWidth: true
+                            visible: caja.detalle !== null && caja.detalle.pagos.length === 0
+                        }
+                        Button {
+                            text: "Cancelar cuenta"
+                            flat: true
+                            enabled: caja.detalle !== null && caja.detalle.pagos.length === 0
+                            onClicked: caja.pedirCancelarCuenta()
+                        }
+                    }
+
                     Label {
                         Layout.fillWidth: true
                         visible: caja.error !== ""
@@ -499,5 +582,19 @@ Item {
                 }
             }
         }
+    }
+
+    DialogoCancelarComandas {
+        id: dialogoCancelar
+        onConfirmado: (ids) => caja.cancelarComandas(ids)
+    }
+
+    DialogoConfirmar {
+        id: confirmarCancelarCuenta
+        titulo: "¿Cancelar la cuenta?"
+        textoAceptar: "Cancelar cuenta"
+        textoRechazar: "Regresar"
+        peligroso: true
+        onConfirmado: caja.cancelarCuenta()
     }
 }

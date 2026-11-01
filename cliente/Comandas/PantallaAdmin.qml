@@ -80,7 +80,7 @@ Item {
                     Repeater {
                         model: [
                             { clave: "caja", titulo: "Caja", lista: true,
-                              descripcion: "Cobrar las cuentas: pagos parciales, propina para el mesero y cierre." },
+                              descripcion: "Cobrar y cerrar cuentas, y cancelar cuentas y comandas." },
                             { clave: "usuarios", titulo: "Usuarios", lista: true,
                               descripcion: "Altas, edición y bajas de usuarios, con su rol y los datos de su puesto." },
                             { clave: "productos", titulo: "Productos", lista: false,

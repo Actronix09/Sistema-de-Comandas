@@ -10,6 +10,7 @@ Dialog {
     property string titulo: "¿Confirmar?"
     property string mensaje: ""
     property string textoAceptar: "Confirmar"
+    property string textoRechazar: "Cancelar"
     property bool peligroso: false
     signal confirmado()
 
@@ -38,7 +39,7 @@ Dialog {
 
     footer: DialogButtonBox {
         Button {
-            text: "Cancelar"
+            text: dialogo.textoRechazar
             flat: true
             DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
         }

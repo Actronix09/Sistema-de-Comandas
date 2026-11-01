@@ -42,6 +42,7 @@ qt_add_qml_module(
     Comandas/Aviso.qml
     Comandas/Avisos.qml
     Comandas/ChipEstado.qml
+    Comandas/DialogoCancelarComandas.qml
     Comandas/DialogoConfirmar.qml
     Comandas/DialogoConfirmarOrden.qml
     Comandas/DialogoIngrediente.qml
