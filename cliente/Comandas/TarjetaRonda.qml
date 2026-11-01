@@ -19,6 +19,8 @@ Rectangle {
     readonly property var pendientes: idsEn(["pendiente"])
     readonly property var porTerminar: idsEn(["pendiente", "en_preparacion"])
     readonly property var listas: idsEn(["lista"])
+    // Para el mesero, una ronda con algo listo se resalta: hay que ir por ello
+    readonly property bool porEntregar: modo === "mesero" && listas.length > 0
 
     function idsEn(estados) {
         let ids = []
@@ -39,7 +41,8 @@ Rectangle {
     implicitHeight: columna.implicitHeight + 24
     radius: Tema.radio
     color: Tema.superficie
-    border.color: Tema.borde
+    border.width: porEntregar ? 2 : 1
+    border.color: porEntregar ? Tema.exito : Tema.borde
 
     ColumnLayout {
         id: columna
@@ -57,6 +60,12 @@ Rectangle {
                 color: Tema.texto
                 font.pixelSize: 18
                 font.bold: true
+            }
+            Etiqueta {
+                visible: tarjeta.porEntregar
+                texto: "Para entregar"
+                tono: Tema.exito
+                solida: true
             }
             Item { Layout.fillWidth: true }
             // En cocina el tiempo se pinta según la espera, solo si falta algo por preparar
@@ -110,6 +119,7 @@ Rectangle {
                 }
                 ColumnLayout {
                     Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignTop
                     spacing: 0
                     Label {
                         Layout.fillWidth: true

@@ -28,7 +28,19 @@ Item {
                 Avisos.error(r.mensaje)
                 return
             }
-            vista.rondas = r.datos.slice().reverse()   // la más reciente arriba
+            vista.rondas = vista.ordenar(r.datos)
+        })
+    }
+
+    // Lo que ya se puede entregar va primero (de lo que lleva más tiempo listo
+    // a lo más reciente); después, lo demás con lo más reciente arriba.
+    function ordenar(rondas) {
+        const tieneLista = r => r.lineas.some(l => l.estado === "lista")
+        return rondas.slice().sort(function (a, b) {
+            const listaA = tieneLista(a), listaB = tieneLista(b)
+            if (listaA !== listaB)
+                return listaA ? -1 : 1
+            return listaA ? a.fecha_hora - b.fecha_hora : b.fecha_hora - a.fecha_hora
         })
     }
 
