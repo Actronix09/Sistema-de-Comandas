@@ -16,26 +16,30 @@ import QtQuick
 //        datos:   lo pedido, o null }
 //  Es la misma idea que el par Peticion/Respuesta de protocolo.h.
 //
-//  Equivalencia con la API REST propuesta (Fase 2 del plan):
-//      iniciarSesion        POST   /auth/login
-//      eventoEnCurso        GET    /eventos/en-curso
-//      listarProductos      GET    /productos
-//      listarMesas          GET    /eventos/{evento}/mesas
-//      listarCuentas        GET    /eventos/{evento}/mesas/{mesa}/cuentas?estado=abierta
-//      crearComandas        POST   /comandas
-//      listarRondas         GET    /comandas?agrupar=ronda&estacion=&mesero=&estado=
-//      cambiarEstado        PATCH  /comandas/estado
-//      listarIngredientes   GET    /ingredientes
-//      guardarIngrediente   POST   /ingredientes   o   PUT /ingredientes/{id}
-//      ajustarStock         PATCH  /ingredientes/{id}/stock
-//      eliminarIngrediente  DELETE /ingredientes/{id}
-//      reiniciarStock       POST   /ingredientes/reiniciar-stock
-//  Las señales comandasCambiaron e inventarioCambio las enviará el WebSocket.
+//  Operación del servidor que sustituirá a cada método (contrato de la Fase 4
+//  de PENDIENTES.md; las marcadas "nueva" no existían en protocolo.h):
+//      iniciarSesion        OP_LOGIN
+//      eventoEnCurso        nueva, por definir
+//      listarProductos      OP_LISTAR_PRODUCTOS
+//      listarMesas          OP_LISTAR_MESAS (nueva)
+//      listarCuentas        OP_LISTAR_CUENTAS (nueva)
+//      crearCuenta          OP_CREAR_CUENTA (nueva)
+//      crearComandas        OP_CREAR_PEDIDO
+//      listarRondas         OP_LISTAR_PEDIDOS
+//      cambiarEstado        OP_CAMBIAR_ESTADO_PEDIDO
+//      listarIngredientes   OP_LISTAR_INGREDIENTES
+//      guardarIngrediente   OP_CREAR_INGREDIENTE   o   OP_MODIFICAR_INGREDIENTE
+//      ajustarStock         OP_MODIFICAR_INGREDIENTE
+//      eliminarIngrediente  OP_ELIMINAR_INGREDIENTE
+//      reiniciarStock       nueva, por definir
+//  Las señales (comandasCambiaron, cuentasCambiaron, inventarioCambio) serán
+//  los avisos que el servidor manda por el WebSocket.
 // ---------------------------------------------------------------------------
 QtObject {
     id: api
 
     signal comandasCambiaron()
+    signal cuentasCambiaron()
     signal inventarioCambio()
 
     // Usuario con sesión iniciada (null si no hay sesión)
@@ -71,11 +75,12 @@ QtObject {
         { numero_mesa: 5, id_mesero: 1 }, { numero_mesa: 6, id_mesero: 2 }
     ]
 
-    // (ejemplo) cuentas del evento 17; el folio se calcula: evento-mesa-secuencial
+    // (ejemplo) cuentas del evento 17; el folio se calcula: evento-mesa-secuencial.
+    // El nombre guía al mesero; en pantalla va primero y el folio al final.
     property var _cuentas: [
-        { secuencial: 1, numero_mesa: 1, estado: "abierta" },
-        { secuencial: 2, numero_mesa: 1, estado: "abierta" },
-        { secuencial: 3, numero_mesa: 3, estado: "abierta" }
+        { secuencial: 1, numero_mesa: 1, nombre: "Novios", estado: "abierta" },
+        { secuencial: 2, numero_mesa: 1, nombre: "Padrinos", estado: "abierta" },
+        { secuencial: 3, numero_mesa: 3, nombre: "Familia Torres", estado: "abierta" }
     ]
 
     // Inventado: tu esquema aún no tiene existencias; esto es lo que el
@@ -228,14 +233,29 @@ QtObject {
     function listarCuentas(numeroMesa, cb) {
         const lista = _cuentas
             .filter(c => c.numero_mesa === numeroMesa && c.estado === "abierta")
-            .map(c => ({ secuencial: c.secuencial, numero_mesa: c.numero_mesa, folio: _folio(c), total: _totalCuenta(c.secuencial) }))
+            .map(c => ({ secuencial: c.secuencial, numero_mesa: c.numero_mesa, nombre: c.nombre,
+                         folio: _folio(c), cuenta: _nombreCuenta(c), total: _totalCuenta(c.secuencial) }))
         _responder(cb, _ok(lista))
+    }
+
+    // Abre una cuenta con nombre en una mesa. Como ux_cuenta_nombre_abierta,
+    // no permite dos cuentas abiertas con el mismo nombre en la misma mesa.
+    function crearCuenta(numeroMesa, nombre, cb) {
+        const negado = _exigirRol(["mesero", "cajero_admin"])
+        if (negado) {
+            _responder(cb, negado)
+            return
+        }
+        const r = _abrirCuenta(numeroMesa, nombre)
+        if (r.codigo === "OK")
+            cuentasCambiaron()
+        _responder(cb, r)
     }
 
     // ============================ Comandas ============================
 
     // lineas: [{ id_producto, cantidad, detalles }]
-    // secuencial: cuenta abierta de esa mesa, o null para abrir una nueva.
+    // secuencial: una cuenta abierta de esa mesa (las nuevas se abren con crearCuenta).
     function crearComandas(numeroMesa, secuencial, lineas, cb) {
         const negado = _exigirRol(["mesero"])
         if (negado) {
@@ -266,6 +286,7 @@ QtObject {
                 grupos[clave] = {
                     clave: clave, fecha_hora: c.fecha_hora,
                     secuencial: c.secuencial, numero_mesa: cuenta.numero_mesa, folio: _folio(cuenta),
+                    nombre_cuenta: cuenta.nombre, cuenta: _nombreCuenta(cuenta),
                     id_mesero: c.id_mesero, mesero: _usuario(c.id_mesero).nombre,
                     comandas: []
                 }
@@ -343,7 +364,14 @@ QtObject {
             lineas.push({ id_producto: p.id_producto, cantidad: 1 + Math.floor(Math.random() * 2),
                           detalles: notas[Math.floor(Math.random() * notas.length)] })
         }
-        const r = _insertarComandas(mesa.numero_mesa, cuenta ? cuenta.secuencial : null, lineas, mesa.id_mesero)
+        let secuencial = cuenta ? cuenta.secuencial : null
+        if (!secuencial) {
+            const nueva = _abrirCuenta(mesa.numero_mesa, "Invitados " + (_cuentas.length + 1))
+            if (nueva.codigo !== "OK")
+                return null
+            secuencial = nueva.datos.secuencial
+        }
+        const r = _insertarComandas(mesa.numero_mesa, secuencial, lineas, mesa.id_mesero)
         return r.codigo === "OK" ? r.datos : null
     }
 
@@ -490,14 +518,12 @@ QtObject {
                               + ": se necesitan " + necesita[id] + " y hay " + (ingrediente ? ingrediente.stock : 0))
         }
 
-        let cuenta = secuencial ? _cuenta(secuencial) : null
-        if (secuencial && (!cuenta || cuenta.numero_mesa !== numeroMesa || cuenta.estado !== "abierta"))
-            return _falla("VALIDACION_FALLIDA", "Esa cuenta no está abierta en la mesa " + numeroMesa)
-        if (!cuenta) {
-            cuenta = { secuencial: _cuentas.reduce((m, c) => Math.max(m, c.secuencial), 0) + 1,
-                       numero_mesa: numeroMesa, estado: "abierta" }
-            _cuentas.push(cuenta)
-        }
+        const cuenta = secuencial ? _cuenta(secuencial) : null
+        if (!cuenta || cuenta.numero_mesa !== numeroMesa)
+            return _falla("VALIDACION_FALLIDA", "Elige una cuenta de la mesa " + numeroMesa)
+        // Mismo texto que tg_comanda_cuenta_abierta
+        if (cuenta.estado !== "abierta")
+            return _falla("VALIDACION_FALLIDA", "No se pueden agregar comandas a una cuenta cerrada")
 
         // El mismo instante para toda la orden: así cocina la ve como una sola
         // ronda. En PostgreSQL, now() vale lo mismo en toda la transacción.
@@ -523,8 +549,30 @@ QtObject {
 
         comandasCambiaron()
         inventarioCambio()
-        return _ok({ creadas: creadas, secuencial: cuenta.secuencial, folio: _folio(cuenta), numero_mesa: numeroMesa },
-                   "Se enviaron " + creadas + (creadas === 1 ? " comanda" : " comandas") + " · Cuenta " + _folio(cuenta))
+        return _ok({ creadas: creadas, secuencial: cuenta.secuencial, folio: _folio(cuenta), cuenta: _nombreCuenta(cuenta),
+                     numero_mesa: numeroMesa },
+                   "Se enviaron " + creadas + (creadas === 1 ? " comanda" : " comandas") + " · " + _nombreCuenta(cuenta))
+    }
+
+    function _abrirCuenta(numeroMesa, nombre) {
+        const limpio = String(nombre || "").trim()
+        if (!_mesas.some(m => m.numero_mesa === numeroMesa))
+            return _falla("VALIDACION_FALLIDA", "La mesa " + numeroMesa + " no existe en este evento")
+        if (limpio.length === 0)
+            return _falla("VALIDACION_FALLIDA", "Escribe un nombre para la cuenta")
+        if (limpio.length > 60)
+            return _falla("VALIDACION_FALLIDA", "El nombre de la cuenta admite hasta 60 caracteres")
+        const repetida = _cuentas.find(c => c.numero_mesa === numeroMesa && c.estado === "abierta"
+                                            && c.nombre.toLowerCase() === limpio.toLowerCase())
+        if (repetida)
+            return _falla("VALIDACION_FALLIDA", "Ya hay una cuenta abierta llamada «" + repetida.nombre
+                          + "» en la mesa " + numeroMesa)
+        const cuenta = { secuencial: _cuentas.reduce((m, c) => Math.max(m, c.secuencial), 0) + 1,
+                         numero_mesa: numeroMesa, nombre: limpio, estado: "abierta" }
+        _cuentas.push(cuenta)
+        return _ok({ secuencial: cuenta.secuencial, numero_mesa: numeroMesa, nombre: limpio,
+                     folio: _folio(cuenta), cuenta: _nombreCuenta(cuenta), total: 0 },
+                   "Se abrió la cuenta " + _nombreCuenta(cuenta))
     }
 
     // Junta las comandas iguales (producto, nota y estado) para mostrar "2× Cerveza".
@@ -597,6 +645,8 @@ QtObject {
     }
 
     function _folio(cuenta) { return _evento.numero_evento + "-" + cuenta.numero_mesa + "-" + cuenta.secuencial }
+    // "Novios · 17-1-1": el nombre guía al mesero y el folio queda al final
+    function _nombreCuenta(cuenta) { return cuenta.nombre + " · " + _folio(cuenta) }
     function _producto(id) { return _productos.find(p => p.id_producto === id) || null }
     function _ingrediente(id) { return _ingredientes.find(i => i.id_ingrediente === id) || null }
     function _nombreIngrediente(id) { const i = _ingrediente(id); return i ? i.nombre : "?" }

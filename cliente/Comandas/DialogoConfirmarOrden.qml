@@ -5,7 +5,7 @@ import QtQuick.Layouts
 
 // "Confirmar Orden". En el sistema en terminal solo se pedía el número de mesa
 // como texto libre; tu esquema exige además la cuenta (evento, secuencial),
-// que puede ser una ya abierta en esa mesa o una nueva.
+// que puede ser una ya abierta en esa mesa o una nueva con su nombre.
 Dialog {
     id: dialogo
 
@@ -31,11 +31,14 @@ Dialog {
                 dialogo.error = r.mensaje
                 return
             }
-            const abiertas = r.datos.map(c => ({ texto: "Cuenta " + c.folio + " · lleva " + Tema.dinero(c.total), secuencial: c.secuencial }))
+            const abiertas = r.datos.map(c => ({ texto: c.cuenta + " · lleva " + Tema.dinero(c.total), secuencial: c.secuencial }))
             dialogo.cuentas = abiertas.concat([{ texto: "Abrir una cuenta nueva", secuencial: null }])
             comboCuenta.currentIndex = 0
         })
     }
+
+    readonly property bool cuentaNueva: cuentas.length > 0 && cuentas[comboCuenta.currentIndex]
+                                         && cuentas[comboCuenta.currentIndex].secuencial === null
 
     function aceptar() {
         const mesa = mesas[comboMesa.currentIndex]
@@ -45,7 +48,22 @@ Dialog {
             return
         }
         error = ""
-        confirmar(mesa.numero_mesa, cuenta.secuencial)
+        if (cuenta.secuencial !== null) {
+            confirmar(mesa.numero_mesa, cuenta.secuencial)
+            return
+        }
+        // Cuenta nueva: primero se abre con su nombre y después se envía la orden
+        enviando = true
+        Api.crearCuenta(mesa.numero_mesa, campoNombre.text, function (r) {
+            if (!dialogo)
+                return
+            dialogo.enviando = false
+            if (r.codigo !== "OK") {
+                dialogo.error = r.mensaje
+                return
+            }
+            dialogo.confirmar(mesa.numero_mesa, r.datos.secuencial)
+        })
     }
 
     title: "Confirmar orden"
@@ -57,6 +75,7 @@ Dialog {
 
     onOpened: {
         error = ""
+        campoNombre.text = ""
         mesas = []
         cuentas = []
         Api.listarMesas(function (r) {
@@ -106,6 +125,21 @@ Dialog {
                 model: dialogo.cuentas
                 textRole: "texto"
                 enabled: !dialogo.enviando && dialogo.cuentas.length > 0
+            }
+
+            Label {
+                visible: dialogo.cuentaNueva
+                text: "Nombre"
+                color: Tema.texto
+                font.bold: true
+            }
+            TextField {
+                id: campoNombre
+                visible: dialogo.cuentaNueva
+                Layout.fillWidth: true
+                placeholderText: "Para guiarte, p. ej. Novios o Mesa del fondo"
+                maximumLength: 60
+                enabled: !dialogo.enviando
             }
         }
 

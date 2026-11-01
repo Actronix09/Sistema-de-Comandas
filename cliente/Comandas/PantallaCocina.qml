@@ -83,7 +83,7 @@ Item {
         onTriggered: {
             const datos = Api.simularRondaEntrante()
             if (datos)
-                Avisos.info("Nueva orden · Mesa " + datos.numero_mesa + " · Cuenta " + datos.folio)
+                Avisos.info("Nueva orden · Mesa " + datos.numero_mesa + " · " + datos.cuenta)
         }
     }
 

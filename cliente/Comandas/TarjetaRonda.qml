@@ -58,12 +58,6 @@ Rectangle {
                 font.pixelSize: 18
                 font.bold: true
             }
-            Etiqueta {
-                Layout.fillWidth: true
-                Layout.maximumWidth: implicitWidth
-                texto: "Cuenta " + tarjeta.ronda.folio
-                tono: Tema.textoSuave
-            }
             Item { Layout.fillWidth: true }
             // En cocina el tiempo se pinta según la espera, solo si falta algo por preparar
             Etiqueta {
@@ -72,6 +66,16 @@ Rectangle {
                 tono: urgente ? Tema.colorEspera(tarjeta.minutos) : Tema.textoSuave
                 solida: urgente && tarjeta.minutos >= 10
             }
+        }
+
+        // La cuenta con su nombre y el folio al final: "Novios · 17-1-1"
+        Label {
+            Layout.fillWidth: true
+            text: tarjeta.ronda.cuenta
+            color: Tema.texto
+            font.pixelSize: Tema.letraMediana
+            font.bold: true
+            wrapMode: Text.WordWrap
         }
 
         Label {
