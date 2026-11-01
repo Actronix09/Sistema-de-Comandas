@@ -282,7 +282,8 @@ Item {
                                     { texto: "Mesero · operez", usuario: "operez" },
                                     { texto: "Cocina · rgamez", usuario: "rgamez" },
                                     { texto: "Bar · isoto", usuario: "isoto" },
-                                    { texto: "Admin · mrivas", usuario: "mrivas" }
+                                    { texto: "Cajero · mrivas", usuario: "mrivas" },
+                                    { texto: "Admin · dcampos", usuario: "dcampos" }
                                 ]
                                 delegate: Button {
                                     id: botonDemo

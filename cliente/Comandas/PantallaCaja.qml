@@ -13,6 +13,7 @@ Item {
 
     signal volver()
 
+    property bool puedeVolver: true     // el cajero entra directo aquí: no hay a dónde volver
     property var cuentas: []
     property bool soloAbiertas: true
     property var elegida: null          // la cuenta del panel derecho
@@ -119,6 +120,7 @@ Item {
                 Layout.fillWidth: true
                 spacing: 8
                 Button {
+                    visible: caja.puedeVolver
                     text: "← Volver"
                     flat: true
                     onClicked: caja.volver()

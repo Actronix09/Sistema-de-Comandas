@@ -5,10 +5,13 @@ import QtQuick.Layouts
 
 // "MENU ADMINISTRADOR": caja, usuarios, productos, ingredientes y logs.
 // Caja e Ingredientes están completas; las otras tres secciones son tus ejercicios.
+// El nivel cajero no ve el menú: entra directo a la Caja.
 Item {
     id: pantalla
 
     signal salir()
+
+    readonly property bool esAdmin: Api.esAdministrador
 
     function abrirSeccion(clave) {
         if (clave === "caja")
@@ -30,7 +33,7 @@ Item {
 
         Encabezado {
             Layout.fillWidth: true
-            titulo: "Administración"
+            titulo: pantalla.esAdmin ? "Administración" : "Caja"
             onSalir: pantalla.salir()
         }
 
@@ -39,7 +42,7 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
-            initialItem: cInicio
+            initialItem: pantalla.esAdmin ? cInicio : cCaja
         }
     }
 
@@ -147,6 +150,7 @@ Item {
     Component {
         id: cCaja
         PantallaCaja {
+            puedeVolver: pantalla.esAdmin
             onVolver: interna.pop()
         }
     }

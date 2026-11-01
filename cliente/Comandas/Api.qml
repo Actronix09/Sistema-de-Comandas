@@ -62,6 +62,9 @@ QtObject {
 
     // Usuario con sesión iniciada (null si no hay sesión)
     property var usuarioActual: null
+    // Dentro de cajero_admin, nivel_acceso separa lo que puede cada quien: el
+    // cajero solo cobra y cierra cuentas (decisión 4.5 de PENDIENTES.md).
+    readonly property bool esAdministrador: usuarioActual !== null && usuarioActual.nivel_acceso === "administrador"
 
     readonly property int retardoMs: 250
     readonly property string contrasenaDemo: "1234"
@@ -77,13 +80,16 @@ QtObject {
         organizadores: ["Ana Torres", "Luis Herrera"]
     })
 
-    // (ejemplo) supertipo usuario + el dato de su subtipo
+    // (ejemplo) supertipo usuario + el dato de su subtipo; la administradora es
+    // inventada. Quien no tenga "contrasena" entra con contrasenaDemo. En el
+    // sistema real el servidor guarda solo el hash y nunca lo devuelve.
     property var _usuarios: [
-        { id_usuario: 1, nombre: "Laura Méndez Ruiz", usuario: "lmendez", rol: "mesero", turno_asignado: "vespertino" },
-        { id_usuario: 2, nombre: "Óscar Pérez Lara",  usuario: "operez",  rol: "mesero", turno_asignado: "nocturno" },
-        { id_usuario: 3, nombre: "Rosa Gámez Torres", usuario: "rgamez",  rol: "bar_cocina", estacion_asignada: "cocina" },
-        { id_usuario: 4, nombre: "Iván Soto Cruz",    usuario: "isoto",   rol: "bar_cocina", estacion_asignada: "bar" },
-        { id_usuario: 5, nombre: "Marta Rivas Peña",  usuario: "mrivas",  rol: "cajero_admin", nivel_acceso: "administrador", caja_asignada: 1 }
+        { id_usuario: 1, nombre: "Laura Méndez Ruiz", usuario: "lmendez", fecha_nacimiento: "1998-04-12", rol: "mesero", turno_asignado: "vespertino" },
+        { id_usuario: 2, nombre: "Óscar Pérez Lara",  usuario: "operez",  fecha_nacimiento: "2001-09-30", rol: "mesero", turno_asignado: "nocturno" },
+        { id_usuario: 3, nombre: "Rosa Gámez Torres", usuario: "rgamez",  fecha_nacimiento: "1990-01-05", rol: "bar_cocina", estacion_asignada: "cocina" },
+        { id_usuario: 4, nombre: "Iván Soto Cruz",    usuario: "isoto",   fecha_nacimiento: "1995-07-21", rol: "bar_cocina", estacion_asignada: "bar" },
+        { id_usuario: 5, nombre: "Marta Rivas Peña",  usuario: "mrivas",  fecha_nacimiento: "1985-11-02", rol: "cajero_admin", nivel_acceso: "cajero", caja_asignada: 1 },
+        { id_usuario: 6, nombre: "Daniela Campos Vega", usuario: "dcampos", fecha_nacimiento: "1982-03-15", rol: "cajero_admin", nivel_acceso: "administrador", caja_asignada: 2 }
     ]
 
     // Mesas 1 a 3 (ejemplo) y 4 a 6 inventadas, con el mesero que las atiende
@@ -200,12 +206,12 @@ QtObject {
     function iniciarSesion(usuario, contrasena, cb) {
         const nombre = String(usuario || "").trim().toLowerCase()
         const u = _usuarios.find(x => x.usuario === nombre)
-        if (!u || contrasena !== contrasenaDemo) {
+        if (!u || contrasena !== (u.contrasena || contrasenaDemo)) {
             _responder(cb, _falla("CREDENCIALES_INVALIDAS", "Usuario o contraseña incorrectos"))
             return
         }
-        usuarioActual = _copia(u)
-        _responder(cb, _ok(u, "Bienvenido, " + u.nombre))
+        usuarioActual = _sinContrasena(u)
+        _responder(cb, _ok(usuarioActual, "Bienvenido, " + u.nombre))
     }
 
     function cerrarSesion() {
@@ -457,7 +463,7 @@ QtObject {
 
     // datos: { id_ingrediente (si se edita), nombre, stock }
     function guardarIngrediente(datos, cb) {
-        const negado = _exigirRol(["cajero_admin"])
+        const negado = _exigirAdministrador()
         if (negado) {
             _responder(cb, negado)
             return
@@ -501,7 +507,7 @@ QtObject {
     }
 
     function ajustarStock(idIngrediente, delta, cb) {
-        const negado = _exigirRol(["cajero_admin"])
+        const negado = _exigirAdministrador()
         if (negado) {
             _responder(cb, negado)
             return
@@ -518,7 +524,7 @@ QtObject {
 
     // Como en el sistema en C, la baja también quita el ingrediente de las recetas.
     function eliminarIngrediente(idIngrediente, cb) {
-        const negado = _exigirRol(["cajero_admin"])
+        const negado = _exigirAdministrador()
         if (negado) {
             _responder(cb, negado)
             return
@@ -542,7 +548,7 @@ QtObject {
     }
 
     function reiniciarStock(cb) {
-        const negado = _exigirRol(["cajero_admin"])
+        const negado = _exigirAdministrador()
         if (negado) {
             _responder(cb, negado)
             return
@@ -808,7 +814,7 @@ QtObject {
             [27, 3, 2, 13, "lista",          3,    null, ""],
             [23, 1, 1, 3,  "en_preparacion", 3,    null, "sin queso"],
             [14, 2, 1, 4,  "pendiente",      null, null, ""],
-            [9,  3, 2, 2,  "cancelada",      null, 5,    ""],
+            [9,  3, 2, 2,  "cancelada",      null, 6,    ""],
             [6,  3, 2, 11, "pendiente",      null, null, "término medio"],
             [6,  3, 2, 6,  "pendiente",      null, null, ""],
             [6,  3, 2, 6,  "pendiente",      null, null, ""],
@@ -858,6 +864,21 @@ QtObject {
         if (roles.indexOf(usuarioActual.rol) < 0)
             return _falla("NO_AUTORIZADO", "Tu rol no puede hacer esta operación")
         return null
+    }
+
+    function _exigirAdministrador() {
+        const negado = _exigirRol(["cajero_admin"])
+        if (negado)
+            return negado
+        if (usuarioActual.nivel_acceso !== "administrador")
+            return _falla("NO_AUTORIZADO", "Solo un administrador puede hacer esta operación")
+        return null
+    }
+
+    function _sinContrasena(usuario) {
+        const copia = _copia(usuario)
+        delete copia.contrasena
+        return copia
     }
 
     function _folio(cuenta) { return _evento.numero_evento + "-" + cuenta.numero_mesa + "-" + cuenta.secuencial }
