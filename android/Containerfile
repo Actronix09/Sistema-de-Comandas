@@ -1,0 +1,42 @@
+# Compila el cliente para Android y lo prueba en un emulador. No lleva el código:
+# compose monta cliente/ para no reconstruir esta imagen con cada cambio.
+FROM docker.io/library/debian:trixie-slim
+
+ARG QT_VERSION=6.8.3
+ARG ANDROID_API=34
+ARG ANDROID_NDK=26.1.10909125
+ARG ANDROID_TOOLS=11076708
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates cmake curl g++ ninja-build openjdk-21-jdk-headless pipx unzip \
+    libdbus-1-3 libegl1 libfontconfig1 libgl1 libglib2.0-0 libnss3 libpulse0 libx11-6 libx11-xcb1 \
+    libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 \
+    libxcb-xinerama0 libxcb-xkb1 libxcomposite1 libxcursor1 libxdamage1 libxi6 libxkbcommon-x11-0 \
+    libxkbfile1 libxrender1 libxtst6 \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV ANDROID_SDK_ROOT=/opt/android ANDROID_HOME=/opt/android ANDROID_AVD_HOME=/opt/avd \
+    JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
+    QT_HOST=/opt/Qt/${QT_VERSION}/gcc_64 QT_ANDROID=/opt/Qt/${QT_VERSION}/android_x86_64 \
+    ANDROID_NDK_ROOT=/opt/android/ndk/${ANDROID_NDK} \
+    PATH=/opt/android/cmdline-tools/latest/bin:/opt/android/platform-tools:/opt/android/emulator:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+RUN curl -fsSL -o /tmp/herramientas.zip \
+        https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_TOOLS}_latest.zip \
+    && mkdir -p /opt/android/cmdline-tools \
+    && unzip -q /tmp/herramientas.zip -d /opt/android/cmdline-tools \
+    && mv /opt/android/cmdline-tools/cmdline-tools /opt/android/cmdline-tools/latest \
+    && rm /tmp/herramientas.zip \
+    && (yes | sdkmanager --licenses >/dev/null) \
+    && sdkmanager --install "platform-tools" "emulator" "platforms;android-${ANDROID_API}" \
+        "build-tools;${ANDROID_API}.0.0" "ndk;${ANDROID_NDK}" \
+        "system-images;android-${ANDROID_API};default;x86_64" >/dev/null \
+    && echo no | avdmanager create avd -n comandas -d pixel_6 \
+        -k "system-images;android-${ANDROID_API};default;x86_64" >/dev/null
+
+RUN PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install aqtinstall \
+    && aqt install-qt linux android ${QT_VERSION} android_x86_64 -O /opt/Qt --autodesktop \
+    && rm -f aqtinstall.log
+
+COPY android/probar.sh /usr/local/bin/probar-android
+CMD ["probar-android"]

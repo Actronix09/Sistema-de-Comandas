@@ -75,5 +75,8 @@ producto_ingrediente
 cliente/build/
 servidor/build/
 
+# Lo que deja la prueba de Android
+android/salida/
+
 # Contraseñas de los contenedores
 .env

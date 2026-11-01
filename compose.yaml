@@ -3,6 +3,7 @@
 #   cp .env.example .env               y llenar la contraseña
 #   podman compose up -d --build       base y servidor
 #   podman compose --profile cliente up --build cliente
+#   podman compose --profile android up --build android
 #
 # Ojo: "podman compose down -v" borra el volumen con todos los datos.
 name: comandas
@@ -72,6 +73,25 @@ services:
         source: ${XDG_RUNTIME_DIR:?se necesita una sesión gráfica}/${WAYLAND_DISPLAY:?se necesita una sesión de Wayland}
         target: /run/comandas/wayland-0
 
+  # Compila para Android y prueba en un emulador. Necesita KVM.
+  android:
+    profiles: [android]
+    build:
+      context: .
+      dockerfile: android/Containerfile
+    image: localhost/comandas-android
+    devices:
+      - /dev/kvm
+    volumes:
+      - ./cliente:/src/cliente:ro
+      - ./validaciones.c:/src/validaciones.c:ro
+      - ./validaciones.h:/src/validaciones.h:ro
+      - ./usuario.h:/src/usuario.h:ro
+      - ./android/salida:/salida
+      - comandas-gradle:/root/.gradle
+
 volumes:
   comandas-pgdata:
     name: comandas-pgdata
+  comandas-gradle:
+    name: comandas-gradle
