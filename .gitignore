@@ -73,3 +73,4 @@ producto_ingrediente
 
 # Compilación del cliente en Qt
 cliente/build/
+servidor/build/
