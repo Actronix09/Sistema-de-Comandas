@@ -44,6 +44,7 @@ qt_add_qml_module(
     Comandas/DialogoConfirmar.qml
     Comandas/DialogoConfirmarOrden.qml
     Comandas/DialogoIngrediente.qml
+    Comandas/ElegirCuenta.qml
     Comandas/Encabezado.qml
     Comandas/Etiqueta.qml
     Comandas/LineaOrden.qml

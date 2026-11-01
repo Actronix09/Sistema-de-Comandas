@@ -3,8 +3,9 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-// "Tomar Nueva Orden" + "Confirmar Orden". La orden se arma aquí, en el
-// cliente; al confirmarla, el servidor crea una comanda por cada unidad.
+// "Tomar Nueva Orden" + "Confirmar Orden". Primero se elige la mesa, después
+// la cuenta y al final los productos. La orden se arma aquí, en el cliente;
+// al confirmarla, el servidor crea una comanda por cada unidad.
 // Todo se hace con toques o clics: la interfaz no depende del teclado.
 Item {
     id: vista
@@ -13,6 +14,8 @@ Item {
     property var visibles: []         // después de filtrar por categoría y búsqueda
     property string categoria: "todas"
     property bool cargando: false
+    property var mesa: null           // elegida en ElegirCuenta
+    property var cuenta: null         // { secuencial, nombre, folio, cuenta, ... }
     // Los enlaces que leen el carrito dependen de esta versión, que sube en
     // cada cambio; así las tarjetas y el total se recalculan.
     property int versionCarrito: 0
@@ -141,13 +144,14 @@ Item {
                           cantidad: l.cantidad, detalles: l.detalles })
         }
         dialogo.lineas = lineas
+        dialogo.destino = "Mesa " + mesa.numero_mesa + " · " + cuenta.cuenta
         dialogo.open()
     }
 
-    function enviar(numeroMesa, secuencial) {
+    function enviar() {
         const lineas = dialogo.lineas.map(l => ({ id_producto: l.id_producto, cantidad: l.cantidad, detalles: l.detalles }))
         dialogo.enviando = true
-        Api.crearComandas(numeroMesa, secuencial, lineas, function (r) {
+        Api.crearComandas(mesa.numero_mesa, cuenta.secuencial, lineas, function (r) {
             if (!vista)
                 return
             dialogo.enviando = false
@@ -155,6 +159,10 @@ Item {
                 dialogo.close()
                 vista.vaciar()
                 Avisos.exito(r.mensaje)
+                // Lista para la siguiente mesa
+                vista.cuenta = null
+                vista.mesa = null
+                elegir.reiniciar()
             } else {
                 dialogo.error = r.mensaje   // a diferencia de la terminal, se muestra el motivo real
             }
@@ -168,9 +176,20 @@ Item {
         function onInventarioCambio() { vista.cargar() }
     }
 
+    ElegirCuenta {
+        id: elegir
+        anchors.fill: parent
+        visible: vista.cuenta === null
+        onElegida: (mesa, cuenta) => {
+            vista.mesa = mesa
+            vista.cuenta = cuenta
+        }
+    }
+
     GridLayout {
         anchors.fill: parent
         anchors.margins: vista.compacta ? Tema.espacio : Tema.margen
+        visible: vista.cuenta !== null
         columns: vista.compacta ? 1 : 2
         columnSpacing: Tema.margen
         rowSpacing: Tema.espacio
@@ -181,6 +200,37 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: 10
+
+            // A dónde va la orden; "Cambiar" regresa a las cuentas sin perder lo elegido
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: filaDestino.implicitHeight + 12
+                radius: Tema.radio
+                color: Qt.rgba(Tema.acento.r, Tema.acento.g, Tema.acento.b, 0.10)
+                border.color: Qt.rgba(Tema.acento.r, Tema.acento.g, Tema.acento.b, 0.35)
+
+                RowLayout {
+                    id: filaDestino
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.leftMargin: 12
+                    anchors.rightMargin: 4
+                    Label {
+                        Layout.fillWidth: true
+                        text: vista.cuenta ? "Mesa " + vista.mesa.numero_mesa + " · " + vista.cuenta.cuenta : ""
+                        color: Tema.texto
+                        font.pixelSize: Tema.letraMediana
+                        font.bold: true
+                        elide: Text.ElideRight
+                    }
+                    Button {
+                        text: "Cambiar"
+                        flat: true
+                        onClicked: vista.cuenta = null
+                    }
+                }
+            }
 
             GridLayout {
                 Layout.fillWidth: true
@@ -378,7 +428,7 @@ Item {
 
     DialogoConfirmarOrden {
         id: dialogo
-        onConfirmar: (numeroMesa, secuencial) => vista.enviar(numeroMesa, secuencial)
+        onConfirmar: vista.enviar()
     }
 
     DialogoConfirmar {

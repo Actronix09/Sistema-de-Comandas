@@ -3,151 +3,39 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-// "Confirmar Orden". En el sistema en terminal solo se pedía el número de mesa
-// como texto libre; tu esquema exige además la cuenta (evento, secuencial),
-// que puede ser una ya abierta en esa mesa o una nueva con su nombre.
+// "Confirmar Orden": resumen antes de enviar. La mesa y la cuenta ya se
+// eligieron antes de los productos, así que aquí solo se muestran.
 Dialog {
     id: dialogo
 
     property var lineas: []        // [{ id_producto, nombre, precio, cantidad, detalles }]
+    property string destino: ""    // "Mesa 1 · Novios · 17-1-1"
     property bool enviando: false
     property string error: ""
-    property var mesas: []
-    property var cuentas: []
-    signal confirmar(int numeroMesa, var secuencial)
+    signal confirmar()
 
     readonly property int unidades: lineas.reduce((suma, l) => suma + l.cantidad, 0)
     readonly property real total: lineas.reduce((suma, l) => suma + l.precio * l.cantidad, 0)
-
-    function cargarCuentas() {
-        const mesa = mesas[comboMesa.currentIndex]
-        if (!mesa)
-            return
-        cuentas = []
-        Api.listarCuentas(mesa.numero_mesa, function (r) {
-            if (!dialogo)
-                return
-            if (r.codigo !== "OK") {
-                dialogo.error = r.mensaje
-                return
-            }
-            const abiertas = r.datos.map(c => ({ texto: c.cuenta + " · lleva " + Tema.dinero(c.total), secuencial: c.secuencial }))
-            dialogo.cuentas = abiertas.concat([{ texto: "Abrir una cuenta nueva", secuencial: null }])
-            comboCuenta.currentIndex = 0
-        })
-    }
-
-    readonly property bool cuentaNueva: cuentas.length > 0 && cuentas[comboCuenta.currentIndex]
-                                         && cuentas[comboCuenta.currentIndex].secuencial === null
-
-    function aceptar() {
-        const mesa = mesas[comboMesa.currentIndex]
-        const cuenta = cuentas[comboCuenta.currentIndex]
-        if (!mesa || !cuenta) {
-            error = "Elige la mesa y la cuenta"
-            return
-        }
-        error = ""
-        if (cuenta.secuencial !== null) {
-            confirmar(mesa.numero_mesa, cuenta.secuencial)
-            return
-        }
-        // Cuenta nueva: primero se abre con su nombre y después se envía la orden
-        enviando = true
-        Api.crearCuenta(mesa.numero_mesa, campoNombre.text, function (r) {
-            if (!dialogo)
-                return
-            dialogo.enviando = false
-            if (r.codigo !== "OK") {
-                dialogo.error = r.mensaje
-                return
-            }
-            dialogo.confirmar(mesa.numero_mesa, r.datos.secuencial)
-        })
-    }
 
     title: "Confirmar orden"
     modal: true
     parent: Overlay.overlay
     anchors.centerIn: parent
-    width: Math.min(560, parent ? parent.width - 48 : 560)
+    width: Math.min(560, parent ? parent.width - 32 : 560)
     closePolicy: enviando ? Popup.NoAutoClose : (Popup.CloseOnEscape | Popup.CloseOnPressOutside)
 
-    onOpened: {
-        error = ""
-        campoNombre.text = ""
-        mesas = []
-        cuentas = []
-        Api.listarMesas(function (r) {
-            if (!dialogo)
-                return
-            if (r.codigo !== "OK") {
-                dialogo.error = r.mensaje
-                return
-            }
-            dialogo.mesas = r.datos
-            comboMesa.currentIndex = 0
-            dialogo.cargarCuentas()
-        })
-    }
+    onOpened: error = ""
 
     contentItem: ColumnLayout {
         spacing: 8
 
-        GridLayout {
-            Layout.fillWidth: true
-            columns: 2
-            columnSpacing: 12
-            rowSpacing: 8
-
-            Label {
-                text: "Mesa"
-                color: Tema.texto
-                font.bold: true
-            }
-            ComboBox {
-                id: comboMesa
-                Layout.fillWidth: true
-                model: dialogo.mesas.map(m => m.mia ? "Mesa " + m.numero_mesa + " (tuya)"
-                                                    : "Mesa " + m.numero_mesa + " · la atiende " + m.mesero)
-                enabled: !dialogo.enviando
-                onActivated: dialogo.cargarCuentas()
-            }
-
-            Label {
-                text: "Cuenta"
-                color: Tema.texto
-                font.bold: true
-            }
-            ComboBox {
-                id: comboCuenta
-                Layout.fillWidth: true
-                model: dialogo.cuentas
-                textRole: "texto"
-                enabled: !dialogo.enviando && dialogo.cuentas.length > 0
-            }
-
-            Label {
-                visible: dialogo.cuentaNueva
-                text: "Nombre"
-                color: Tema.texto
-                font.bold: true
-            }
-            TextField {
-                id: campoNombre
-                visible: dialogo.cuentaNueva
-                Layout.fillWidth: true
-                placeholderText: "Para guiarte, p. ej. Novios o Mesa del fondo"
-                maximumLength: 60
-                enabled: !dialogo.enviando
-            }
-        }
-
         Label {
-            Layout.topMargin: 6
-            text: "Resumen"
+            Layout.fillWidth: true
+            text: dialogo.destino
             color: Tema.texto
+            font.pixelSize: Tema.letraMediana
             font.bold: true
+            wrapMode: Text.WordWrap
         }
 
         Rectangle {
@@ -172,6 +60,7 @@ Dialog {
                         Layout.fillWidth: true
                         Label {
                             Layout.preferredWidth: 30
+                            Layout.alignment: Qt.AlignTop
                             text: renglon.modelData.cantidad + "×"
                             color: Tema.texto
                             font.bold: true
@@ -181,9 +70,10 @@ Dialog {
                             text: renglon.modelData.nombre
                                   + (renglon.modelData.detalles ? "  —  “" + renglon.modelData.detalles + "”" : "")
                             color: Tema.texto
-                            elide: Text.ElideRight
+                            wrapMode: Text.WordWrap
                         }
                         Label {
+                            Layout.alignment: Qt.AlignTop
                             text: Tema.dinero(renglon.modelData.precio * renglon.modelData.cantidad)
                             color: Tema.texto
                         }
@@ -195,12 +85,13 @@ Dialog {
         RowLayout {
             Layout.fillWidth: true
             Label {
+                Layout.fillWidth: true
                 text: "Se crearán " + dialogo.unidades + (dialogo.unidades === 1 ? " comanda" : " comandas")
                       + " (una por unidad)"
                 color: Tema.textoSuave
                 font.pixelSize: Tema.letraChica
+                wrapMode: Text.WordWrap
             }
-            Item { Layout.fillWidth: true }
             Label {
                 text: "Total " + Tema.dinero(dialogo.total)
                 color: Tema.acento
@@ -229,9 +120,9 @@ Dialog {
         Button {
             text: dialogo.enviando ? "Enviando…" : "Enviar a cocina y bar"
             highlighted: true
-            enabled: !dialogo.enviando && dialogo.cuentas.length > 0
+            enabled: !dialogo.enviando
             DialogButtonBox.buttonRole: DialogButtonBox.ActionRole
-            onClicked: dialogo.aceptar()
+            onClicked: dialogo.confirmar()
         }
     }
 }
