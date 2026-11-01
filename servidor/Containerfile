@@ -1,0 +1,19 @@
+# Se construye desde la raíz del repo porque usa validaciones.c y protocolo.h
+FROM docker.io/library/debian:trixie-slim AS compilacion
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cmake g++ libsodium-dev ninja-build pkg-config qt6-base-dev qt6-websockets-dev
+COPY protocolo.h usuario.h validaciones.c validaciones.h /src/
+COPY servidor /src/servidor
+RUN cmake -S /src/servidor -B /src/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+    && cmake --build /src/build
+
+FROM docker.io/library/debian:trixie-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libqt6sql6-psql libqt6websockets6 libsodium23 \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=compilacion /src/build/servidor_comandas /usr/local/bin/servidor_comandas
+# Sin esto, Qt puede mandar los mensajes al journal y no a los logs del contenedor
+ENV QT_FORCE_STDERR_LOGGING=1 LC_ALL=C.UTF-8
+USER nobody
+EXPOSE 9000
+CMD ["servidor_comandas"]

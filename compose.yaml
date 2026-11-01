@@ -1,0 +1,65 @@
+# Sistema de Comandas en contenedores
+#
+#   cp .env.example .env               y llenar la contraseña
+#   podman compose up -d --build       base y servidor
+#   podman compose --profile cliente up --build cliente
+#
+# Ojo: "podman compose down -v" borra el volumen con todos los datos.
+name: comandas
+
+services:
+  db:
+    image: docker.io/library/postgres:16.4-alpine
+    environment:
+      POSTGRES_DB: comandas
+      POSTGRES_USER: ${COMANDAS_BD_USUARIO:?falta en .env}
+      POSTGRES_PASSWORD: ${COMANDAS_BD_CONTRASENA:?falta en .env}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      TZ: America/Mexico_City
+    ports:
+      - "5433:5432"
+    volumes:
+      - comandas-pgdata:/var/lib/postgresql/data
+      # El esquema se monta desde el repo de la base para no tener dos copias.
+      # Solo se carga cuando el volumen está vacío.
+      - type: bind
+        source: ${COMANDAS_SQL:?falta en .env}/esquema.sql
+        target: /docker-entrypoint-initdb.d/01-esquema.sql
+        read_only: true
+      - type: bind
+        source: ${COMANDAS_SQL}/datos-ejemplo.sql
+        target: /docker-entrypoint-initdb.d/02-datos-ejemplo.sql
+        read_only: true
+      - type: bind
+        source: ./db/init/03-contrasenas-desarrollo.sql
+        target: /docker-entrypoint-initdb.d/03-contrasenas-desarrollo.sql
+        read_only: true
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -q -U \"$$POSTGRES_USER\" -d comandas"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  servidor:
+    build:
+      context: .
+      dockerfile: servidor/Containerfile
+    image: localhost/comandas-servidor
+    environment:
+      COMANDAS_BD_HOST: db
+      COMANDAS_BD_PUERTO: "5432"
+      COMANDAS_BD_NOMBRE: comandas
+      COMANDAS_BD_USUARIO: ${COMANDAS_BD_USUARIO}
+      COMANDAS_BD_CONTRASENA: ${COMANDAS_BD_CONTRASENA}
+      COMANDAS_PUERTO: "9000"
+    ports:
+      - "9000:9000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  comandas-pgdata:
+    name: comandas-pgdata
