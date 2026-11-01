@@ -8,8 +8,7 @@ import QtQuick.Layouts
 //   lista                   → Api.listarIngredientes
 //   alta y edición          → DialogoIngrediente (el servidor valida)
 //   baja con confirmación   → DialogoConfirmar
-// Se conservan las teclas de la terminal sobre la fila elegida:
-// + y - ajustan la existencia, I (o Enter) edita, E elimina, R pone todo en 0.
+// Todo se hace con botones; un doble toque en la fila también la edita.
 Item {
     id: pagina
 
@@ -22,7 +21,6 @@ Item {
 
     function cargar() {
         cargando = true
-        const elegido = visibles[lista.currentIndex] ? visibles[lista.currentIndex].id_ingrediente : -1
         Api.listarIngredientes(function (r) {
             if (!pagina)
                 return
@@ -33,10 +31,6 @@ Item {
             }
             pagina.ingredientes = r.datos
             pagina.filtrar()
-            // Al recargar, conserva la fila elegida
-            const indice = pagina.visibles.findIndex(i => i.id_ingrediente === elegido)
-            if (indice >= 0)
-                lista.currentIndex = indice
         })
     }
 
@@ -114,7 +108,6 @@ Item {
                 Layout.preferredWidth: 220
                 placeholderText: "Buscar…"
                 onTextChanged: pagina.filtrar()
-                Keys.onDownPressed: lista.forceActiveFocus()
             }
             Button {
                 text: "Poner todo en 0"
@@ -126,12 +119,6 @@ Item {
                 highlighted: true
                 onClicked: dialogo.abrirNuevo()
             }
-        }
-
-        Label {
-            text: "Sobre la fila elegida: + / − existencia · I o Enter: editar · E: eliminar · R: poner todo en 0 · doble clic: editar"
-            color: Tema.textoSuave
-            font.pixelSize: Tema.letraChica
         }
 
         Rectangle {
@@ -187,7 +174,6 @@ Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-                    focus: true
                     boundsBehavior: Flickable.StopAtBounds
                     model: pagina.visibles
                     ScrollBar.vertical: ScrollBar {}
@@ -196,19 +182,13 @@ Item {
                         id: fila
                         required property var modelData
                         required property int index
-                        readonly property bool elegida: lista.currentIndex === index && lista.activeFocus
                         width: lista.width
                         implicitHeight: 54
-                        color: elegida ? Qt.rgba(Tema.acento.r, Tema.acento.g, Tema.acento.b, 0.10)
-                                       : (index % 2 === 1 ? Qt.rgba(Tema.superficieAlta.r, Tema.superficieAlta.g, Tema.superficieAlta.b, 0.5)
-                                                          : Tema.superficie)
+                        color: index % 2 === 1 ? Qt.rgba(Tema.superficieAlta.r, Tema.superficieAlta.g, Tema.superficieAlta.b, 0.5)
+                                               : Tema.superficie
 
                         MouseArea {
                             anchors.fill: parent
-                            onClicked: {
-                                lista.currentIndex = fila.index
-                                lista.forceActiveFocus()
-                            }
                             onDoubleClicked: dialogo.abrirEdicion(fila.modelData)
                         }
 
@@ -292,28 +272,6 @@ Item {
                         }
                     }
 
-                    Keys.onPressed: (evento) => {
-                        const ingrediente = pagina.visibles[lista.currentIndex]
-                        if (!ingrediente)
-                            return
-                        if (evento.key === Qt.Key_Plus || evento.text === "+") {
-                            pagina.ajustar(ingrediente, 1)
-                            evento.accepted = true
-                        } else if (evento.key === Qt.Key_Minus || evento.text === "-") {
-                            pagina.ajustar(ingrediente, -1)
-                            evento.accepted = true
-                        } else if (evento.key === Qt.Key_I || evento.key === Qt.Key_Return || evento.key === Qt.Key_Enter) {
-                            dialogo.abrirEdicion(ingrediente)
-                            evento.accepted = true
-                        } else if (evento.key === Qt.Key_E || evento.key === Qt.Key_Delete) {
-                            pagina.pedirEliminar(ingrediente)
-                            evento.accepted = true
-                        } else if (evento.key === Qt.Key_R) {
-                            confirmarReinicio.open()
-                            evento.accepted = true
-                        }
-                    }
-
                     Label {
                         anchors.centerIn: parent
                         visible: !pagina.cargando && pagina.visibles.length === 0
@@ -327,7 +285,6 @@ Item {
 
     DialogoIngrediente {
         id: dialogo
-        onClosed: lista.forceActiveFocus()
     }
 
     DialogoConfirmar {
@@ -336,7 +293,6 @@ Item {
         textoAceptar: "Eliminar"
         peligroso: true
         onConfirmado: pagina.eliminar()
-        onClosed: lista.forceActiveFocus()
     }
 
     DialogoConfirmar {
@@ -346,6 +302,5 @@ Item {
         textoAceptar: "Poner en 0"
         peligroso: true
         onConfirmado: pagina.reiniciar()
-        onClosed: lista.forceActiveFocus()
     }
 }

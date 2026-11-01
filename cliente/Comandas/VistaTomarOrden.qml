@@ -5,8 +5,7 @@ import QtQuick.Layouts
 
 // "Tomar Nueva Orden" + "Confirmar Orden". La orden se arma aquí, en el
 // cliente; al confirmarla, el servidor crea una comanda por cada unidad.
-// Se conservan las teclas de la terminal: ENTER o + agrega, - quita,
-// O confirma y ESC vacía la orden.
+// Todo se hace con toques o clics: la interfaz no depende del teclado.
 Item {
     id: vista
 
@@ -206,14 +205,7 @@ Item {
                     Layout.preferredWidth: 280
                     placeholderText: "Buscar producto o ingrediente…"
                     onTextChanged: vista.filtrar()
-                    Keys.onDownPressed: cuadricula.forceActiveFocus()
                 }
-            }
-
-            Label {
-                text: "Clic o Enter: agregar · −: quitar uno · O: confirmar · Esc: vaciar · flechas: moverse"
-                color: Tema.textoSuave
-                font.pixelSize: Tema.letraChica
             }
 
             GridView {
@@ -221,7 +213,6 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
-                focus: true
                 boundsBehavior: Flickable.StopAtBounds
                 readonly property int columnas: Math.max(1, Math.floor(width / 250))
                 cellWidth: Math.floor(width / columnas)
@@ -244,34 +235,8 @@ Item {
                             vista.versionCarrito   // dependencia: recalcular al cambiar el carrito
                             return vista.cantidadDe(celda.modelData.id_producto)
                         }
-                        seleccionada: cuadricula.activeFocus && cuadricula.currentIndex === celda.index
-                        onAgregar: {
-                            cuadricula.currentIndex = celda.index
-                            cuadricula.forceActiveFocus()
-                            vista.agregar(celda.modelData)
-                        }
+                        onAgregar: vista.agregar(celda.modelData)
                         onQuitar: vista.quitar(celda.modelData.id_producto)
-                    }
-                }
-
-                Keys.onPressed: (evento) => {
-                    const actual = vista.visibles[cuadricula.currentIndex]
-                    if (evento.key === Qt.Key_Return || evento.key === Qt.Key_Enter
-                            || evento.key === Qt.Key_Plus || evento.text === "+") {
-                        if (actual)
-                            vista.agregar(actual)
-                        evento.accepted = true
-                    } else if (evento.key === Qt.Key_Minus || evento.text === "-") {
-                        if (actual)
-                            vista.quitar(actual.id_producto)
-                        evento.accepted = true
-                    } else if (evento.key === Qt.Key_O) {
-                        vista.confirmar()
-                        evento.accepted = true
-                    } else if (evento.key === Qt.Key_Escape) {
-                        if (carrito.count > 0)
-                            confirmarVaciar.open()
-                        evento.accepted = true
                     }
                 }
 
@@ -384,7 +349,7 @@ Item {
                     }
                     Button {
                         Layout.fillWidth: true
-                        text: "Confirmar orden (O)"
+                        text: "Confirmar orden"
                         highlighted: true
                         enabled: carrito.count > 0
                         onClicked: vista.confirmar()
@@ -397,7 +362,6 @@ Item {
     DialogoConfirmarOrden {
         id: dialogo
         onConfirmar: (numeroMesa, secuencial) => vista.enviar(numeroMesa, secuencial)
-        onClosed: cuadricula.forceActiveFocus()
     }
 
     DialogoConfirmar {
@@ -406,6 +370,5 @@ Item {
         mensaje: "Se quitarán todos los productos de la orden actual."
         textoAceptar: "Vaciar"
         onConfirmado: vista.vaciar()
-        onClosed: cuadricula.forceActiveFocus()
     }
 }

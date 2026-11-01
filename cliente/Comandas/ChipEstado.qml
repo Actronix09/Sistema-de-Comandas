@@ -1,7 +1,8 @@
 import QtQuick
 import QtQuick.Controls
 
-// Estado de una comanda. Si es interactivo, un clic avanza al siguiente estado.
+// Estado de una comanda. Si es interactivo, un toque avanza al siguiente estado.
+// El área que recibe el toque mide 48 px de alto aunque el chip se vea más chico.
 Rectangle {
     id: chip
 
@@ -31,6 +32,8 @@ Rectangle {
     MouseArea {
         id: raton
         anchors.fill: parent
+        anchors.topMargin: -12
+        anchors.bottomMargin: -12
         enabled: chip.interactivo
         hoverEnabled: chip.interactivo
         cursorShape: chip.interactivo ? Qt.PointingHandCursor : Qt.ArrowCursor

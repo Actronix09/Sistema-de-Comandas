@@ -4,8 +4,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 // "=== SISTEMA DE COCINA ===" convertido en tablero de tres columnas.
-// Siguen las teclas de la terminal sobre la tarjeta elegida:
-// 1 = Iniciar (en preparación), 2 = Lista, R = Actualizar.
+// Cada estado se avanza tocando su chip o los botones Iniciar y Lista.
 Item {
     id: pantalla
 
@@ -14,7 +13,6 @@ Item {
     property var rondas: []
     property string estacion: Api.usuarioActual && Api.usuarioActual.estacion_asignada
                               ? Api.usuarioActual.estacion_asignada : "todas"
-    property string seleccionada: ""
     property date ahora: new Date()
 
     readonly property var columnas: [
@@ -37,14 +35,6 @@ Item {
         return rondas.filter(r => columnaDe(r) === estado)
     }
 
-    function idsDe(ronda, estados) {
-        let ids = []
-        for (const l of ronda.lineas)
-            if (estados.indexOf(l.estado) >= 0)
-                ids = ids.concat(l.ids)
-        return ids
-    }
-
     function cargar() {
         Api.listarRondas({ estacion: estacion, estados: ["pendiente", "en_preparacion", "lista"] }, function (r) {
             if (!pantalla)
@@ -64,15 +54,6 @@ Item {
             if (r.codigo !== "OK")
                 Avisos.error(r.mensaje)
         })
-    }
-
-    function sobreSeleccionada(estados, nuevoEstado) {
-        const ronda = rondas.find(r => r.clave === seleccionada)
-        if (!ronda) {
-            Avisos.info("Primero elige una tarjeta con un clic")
-            return
-        }
-        cambiar(idsDe(ronda, estados), nuevoEstado)
     }
 
     Component.onCompleted: cargar()
@@ -100,19 +81,6 @@ Item {
             if (datos)
                 Avisos.info("Nueva orden · Mesa " + datos.numero_mesa + " · Cuenta " + datos.folio)
         }
-    }
-
-    Shortcut {
-        sequence: "R"
-        onActivated: pantalla.cargar()
-    }
-    Shortcut {
-        sequence: "1"
-        onActivated: pantalla.sobreSeleccionada(["pendiente"], "en_preparacion")
-    }
-    Shortcut {
-        sequence: "2"
-        onActivated: pantalla.sobreSeleccionada(["pendiente", "en_preparacion"], "lista")
     }
 
     Rectangle {
@@ -190,12 +158,6 @@ Item {
             }
 
             Item { Layout.fillWidth: true }
-
-            Label {
-                text: "Clic en una tarjeta para elegirla · 1: Iniciar · 2: Lista · R: Actualizar"
-                color: Tema.textoSuave
-                font.pixelSize: Tema.letraChica
-            }
         }
 
         RowLayout {
@@ -263,8 +225,6 @@ Item {
                                 ronda: tarjetaRonda.modelData
                                 modo: "cocina"
                                 ahora: pantalla.ahora
-                                seleccionada: pantalla.seleccionada === tarjetaRonda.modelData.clave
-                                onElegida: pantalla.seleccionada = tarjetaRonda.modelData.clave
                                 onCambiar: (ids, estado) => pantalla.cambiar(ids, estado)
                             }
 

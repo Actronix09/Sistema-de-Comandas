@@ -3,13 +3,12 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 // Tarjeta de un producto del catálogo (equivale a dibujar_recuadro_producto).
-// Un clic en la tarjeta agrega una unidad, como ENTER en la terminal.
+// Un toque o clic en la tarjeta agrega una unidad.
 Rectangle {
     id: tarjeta
 
     required property var producto
     property int cantidad: 0
-    property bool seleccionada: false
     signal agregar()
     signal quitar()
 
@@ -18,9 +17,8 @@ Rectangle {
 
     radius: Tema.radio
     color: raton.containsMouse && !agotado ? Tema.superficieAlta : Tema.superficie
-    border.width: seleccionada || cantidad > 0 ? 2 : 1
-    border.color: seleccionada ? Tema.acento
-                               : (cantidad > 0 ? Qt.rgba(Tema.acento.r, Tema.acento.g, Tema.acento.b, 0.45) : Tema.borde)
+    border.width: cantidad > 0 ? 2 : 1
+    border.color: cantidad > 0 ? Qt.rgba(Tema.acento.r, Tema.acento.g, Tema.acento.b, 0.45) : Tema.borde
     opacity: agotado ? 0.55 : 1
 
     MouseArea {

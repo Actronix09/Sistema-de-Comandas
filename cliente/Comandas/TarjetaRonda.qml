@@ -12,10 +12,8 @@ Rectangle {
 
     required property var ronda
     property string modo: "cocina"
-    property bool seleccionada: false
     property date ahora: new Date()
     signal cambiar(var ids, string estado)
-    signal elegida()
 
     readonly property int minutos: Math.max(0, Math.floor((ahora.getTime() - ronda.fecha_hora) / 60000))
     readonly property var pendientes: idsEn(["pendiente"])
@@ -41,13 +39,7 @@ Rectangle {
     implicitHeight: columna.implicitHeight + 24
     radius: Tema.radio
     color: Tema.superficie
-    border.width: seleccionada ? 2 : 1
-    border.color: seleccionada ? Tema.acento : Tema.borde
-
-    MouseArea {
-        anchors.fill: parent
-        onClicked: tarjeta.elegida()
-    }
+    border.color: Tema.borde
 
     ColumnLayout {
         id: columna
@@ -149,12 +141,12 @@ Rectangle {
             spacing: 8
             Item { Layout.fillWidth: true }
             Button {
-                text: "Iniciar (1)"
+                text: "Iniciar"
                 enabled: tarjeta.pendientes.length > 0
                 onClicked: tarjeta.cambiar(tarjeta.pendientes, "en_preparacion")
             }
             Button {
-                text: "Lista (2)"
+                text: "Lista"
                 highlighted: true
                 enabled: tarjeta.porTerminar.length > 0
                 onClicked: tarjeta.cambiar(tarjeta.porTerminar, "lista")
