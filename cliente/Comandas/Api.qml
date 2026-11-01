@@ -32,6 +32,10 @@ import QtQuick
 //      ajustarStock         OP_MODIFICAR_INGREDIENTE
 //      eliminarIngrediente  OP_ELIMINAR_INGREDIENTE
 //      reiniciarStock       nueva, por definir
+//      listarCuentasCaja    OP_LISTAR_CUENTAS (nueva)
+//      detalleCuenta        nueva, por definir
+//      registrarPago        OP_REGISTRAR_PAGO (nueva)
+//      cerrarCuenta         OP_CERRAR_CUENTA (nueva)
 //  Las señales (comandasCambiaron, cuentasCambiaron, inventarioCambio) serán
 //  los avisos que el servidor manda por el WebSocket.
 // ---------------------------------------------------------------------------
@@ -151,6 +155,13 @@ QtObject {
     // Una fila por unidad pedida, como la tabla comanda (se llena al arrancar)
     property var _comandas: []
     property int _siguienteComanda: 1
+
+    // (ejemplo) un pago con propina, como en datos-ejemplo.sql. monto incluye
+    // la propina: lo que abona al consumo es monto - monto_propina.
+    property var _pagos: [
+        { numero_pago: 1, secuencial: 1, monto: 85.00, forma_pago: "efectivo", monto_propina: 50.00,
+          id_mesero_propina: 1, id_cajero: 5, fecha_hora: Date.now() - 20 * 60000 }
+    ]
 
     // Transiciones permitidas y quién puede hacerlas. En el sistema en C no se
     // validaban (2 → 0 → 2 descontaba el stock dos veces); aquí sí.
@@ -486,6 +497,145 @@ QtObject {
         _responder(cb, _ok(null, "Todas las existencias quedaron en 0"))
     }
 
+    // ============================== Caja ==============================
+
+    // Todas las cuentas del evento con su total, lo pagado y el saldo (v_cuenta).
+    // Llevan los mismos campos que una ronda para poder agruparlas igual.
+    function listarCuentasCaja(cb) {
+        const negado = _exigirRol(["cajero_admin"])
+        if (negado) {
+            _responder(cb, negado)
+            return
+        }
+        const lista = _cuentas.map(function (c) {
+            const mesa = _mesas.find(m => m.numero_mesa === c.numero_mesa)
+            const suyas = _comandas.filter(x => x.secuencial === c.secuencial)
+            const ultima = suyas.reduce((m, x) => Math.max(m, x.fecha_hora), 0)
+            return {
+                secuencial: c.secuencial, numero_mesa: c.numero_mesa, nombre: c.nombre, folio: _folio(c),
+                cuenta: _nombreCuenta(c), estado: c.estado,
+                id_mesero: mesa.id_mesero, mesero: _usuario(mesa.id_mesero).nombre,
+                fecha_hora: ultima,
+                total: _centavos(_totalCuenta(c.secuencial)) / 100,
+                pagado: _centavos(_pagadoCuenta(c.secuencial)) / 100,
+                saldo: _saldo(c.secuencial) / 100,
+                por_terminar: suyas.filter(x => x.estado !== "entregada" && x.estado !== "cancelada").length
+            }
+        })
+        _responder(cb, _ok(lista))
+    }
+
+    function detalleCuenta(secuencial, cb) {
+        const negado = _exigirRol(["cajero_admin"])
+        if (negado) {
+            _responder(cb, negado)
+            return
+        }
+        const c = _cuenta(secuencial)
+        if (!c) {
+            _responder(cb, _falla("ERROR", "La cuenta ya no existe"))
+            return
+        }
+        const comandas = _comandas.filter(x => x.secuencial === secuencial).map(x => ({
+            id_comanda: x.id_comanda, id_producto: x.id_producto, producto: _producto(x.id_producto).nombre,
+            detalles: x.detalles, estado: x.estado, precio: x.precio_cobrado
+        }))
+        const lineas = []
+        for (const x of comandas) {
+            let l = lineas.find(y => y.id_producto === x.id_producto && y.estado === x.estado && y.precio === x.precio)
+            if (!l) {
+                l = { id_producto: x.id_producto, producto: x.producto, estado: x.estado, precio: x.precio, cantidad: 0 }
+                lineas.push(l)
+            }
+            l.cantidad++
+        }
+        const pagos = _pagos.filter(p => p.secuencial === secuencial).map(p => ({
+            numero_pago: p.numero_pago, monto: p.monto, forma_pago: p.forma_pago,
+            monto_propina: p.monto_propina, fecha_hora: p.fecha_hora,
+            mesero_propina: p.id_mesero_propina ? _usuario(p.id_mesero_propina).nombre : ""
+        }))
+        _responder(cb, _ok({ secuencial: secuencial, lineas: lineas, pagos: pagos }))
+    }
+
+    // datos: { monto, forma_pago, monto_propina }. Las reglas son las de la
+    // base (ck_pago_monto, ck_pago_propina_limite y tg_pago_saldo), con sus textos.
+    function registrarPago(secuencial, datos, cb) {
+        const negado = _exigirRol(["cajero_admin"])
+        if (negado) {
+            _responder(cb, negado)
+            return
+        }
+        const c = _cuenta(secuencial)
+        if (!c) {
+            _responder(cb, _falla("ERROR", "La cuenta ya no existe"))
+            return
+        }
+        if (c.estado !== "abierta") {
+            _responder(cb, _falla("VALIDACION_FALLIDA", "La cuenta está cerrada; ya no recibe pagos"))
+            return
+        }
+        const monto = _centavos(datos.monto)
+        const propina = _centavos(datos.monto_propina || 0)
+        if (isNaN(monto) || monto <= 0) {
+            _responder(cb, _falla("VALIDACION_FALLIDA", "El monto debe ser mayor que 0"))
+            return
+        }
+        if (["efectivo", "tarjeta", "transferencia"].indexOf(datos.forma_pago) < 0) {
+            _responder(cb, _falla("VALIDACION_FALLIDA", "Elige la forma de pago"))
+            return
+        }
+        if (isNaN(propina) || propina < 0) {
+            _responder(cb, _falla("VALIDACION_FALLIDA", "La propina no puede ser negativa"))
+            return
+        }
+        if (propina > monto) {
+            _responder(cb, _falla("VALIDACION_FALLIDA", "La propina no puede ser mayor que el monto del pago"))
+            return
+        }
+        const saldo = _saldo(secuencial)
+        if (monto - propina > saldo) {
+            _responder(cb, _falla("VALIDACION_FALLIDA", "El pago excede el saldo de la cuenta (" + (saldo / 100).toFixed(2) + ")"))
+            return
+        }
+        const mesa = _mesas.find(m => m.numero_mesa === c.numero_mesa)
+        _pagos.push({
+            numero_pago: _pagos.reduce((m, p) => Math.max(m, p.numero_pago), 0) + 1,
+            secuencial: secuencial, monto: monto / 100, forma_pago: datos.forma_pago,
+            monto_propina: propina > 0 ? propina / 100 : null,
+            id_mesero_propina: propina > 0 ? mesa.id_mesero : null,
+            id_cajero: usuarioActual.id_usuario, fecha_hora: Date.now()
+        })
+        cuentasCambiaron()
+        const restante = _saldo(secuencial)
+        _responder(cb, _ok({ saldo: restante / 100 }, "Pago registrado · saldo " + Tema.dinero(restante / 100)))
+    }
+
+    // Como tg_cuenta_cierre: todas las comandas entregadas o canceladas y saldo 0.
+    function cerrarCuenta(secuencial, cb) {
+        const negado = _exigirRol(["cajero_admin"])
+        if (negado) {
+            _responder(cb, negado)
+            return
+        }
+        const c = _cuenta(secuencial)
+        if (!c || c.estado !== "abierta") {
+            _responder(cb, _falla("VALIDACION_FALLIDA", "La cuenta ya está cerrada"))
+            return
+        }
+        if (_comandas.some(x => x.secuencial === secuencial && x.estado !== "entregada" && x.estado !== "cancelada")) {
+            _responder(cb, _falla("VALIDACION_FALLIDA", "La cuenta tiene comandas sin terminar"))
+            return
+        }
+        const saldo = _saldo(secuencial)
+        if (saldo !== 0) {
+            _responder(cb, _falla("VALIDACION_FALLIDA", "La cuenta tiene saldo pendiente (" + (saldo / 100).toFixed(2) + ")"))
+            return
+        }
+        c.estado = "cerrada"
+        cuentasCambiaron()
+        _responder(cb, _ok(null, "Se cerró la cuenta " + _nombreCuenta(c)))
+    }
+
     // Bebidas van al bar; alimentos y dulcería a cocina. Es un supuesto: en tu
     // esquema falta decidir de dónde sale la estación de cada producto.
     function estacionDe(categoria) {
@@ -635,6 +785,16 @@ QtObject {
             .filter(c => c.secuencial === secuencial && c.estado !== "cancelada")
             .reduce((suma, c) => suma + c.precio_cobrado, 0)
     }
+
+    // Lo que los pagos abonan al consumo, sin propinas
+    function _pagadoCuenta(secuencial) {
+        return _pagos.filter(p => p.secuencial === secuencial)
+                     .reduce((suma, p) => suma + p.monto - (p.monto_propina || 0), 0)
+    }
+
+    // El dinero se compara en centavos enteros para no arrastrar errores de float
+    function _centavos(valor) { return Math.round(Number(String(valor).replace(",", ".")) * 100) }
+    function _saldo(secuencial) { return _centavos(_totalCuenta(secuencial)) - _centavos(_pagadoCuenta(secuencial)) }
 
     function _exigirRol(roles) {
         if (!usuarioActual)

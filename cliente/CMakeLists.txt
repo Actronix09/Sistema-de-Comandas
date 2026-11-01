@@ -49,6 +49,7 @@ qt_add_qml_module(
     Comandas/Etiqueta.qml
     Comandas/LineaOrden.qml
     Comandas/PantallaAdmin.qml
+    Comandas/PantallaCaja.qml
     Comandas/PantallaCocina.qml
     Comandas/PantallaLogin.qml
     Comandas/PantallaMesero.qml

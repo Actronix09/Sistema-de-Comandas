@@ -4,11 +4,13 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 // Las tres formas de organizar las órdenes: por tiempo, por mesa y cuenta, y
-// por mesero. Lo usan el mesero y cocina/bar; agrupar() hace el trabajo.
+// por mesero. Lo usan el mesero, cocina/bar y caja; agrupar() hace el trabajo.
 RowLayout {
     id: selector
 
     property string modo: "tiempo"     // "tiempo" | "mesa" | "mesero"
+    // En caja cada elemento ya es una cuenta: "Mesa y cuenta" agrupa solo por mesa
+    property bool soloMesa: false
 
     // rondas (ya ordenadas) → [{ titulo, rondas }]. Dentro de cada grupo se
     // conserva el orden recibido. Por tiempo hay un solo grupo sin título.
@@ -18,11 +20,12 @@ RowLayout {
         const grupos = []
         const porClave = {}
         for (const r of rondas) {
-            const clave = modo === "mesa" ? r.numero_mesa + "|" + r.secuencial : String(r.id_mesero)
+            const clave = modo === "mesa" ? (soloMesa ? String(r.numero_mesa) : r.numero_mesa + "|" + r.secuencial)
+                                          : String(r.id_mesero)
             if (!porClave[clave]) {
                 porClave[clave] = {
                     clave: clave,
-                    titulo: modo === "mesa" ? "Mesa " + r.numero_mesa + " · " + r.cuenta : r.mesero,
+                    titulo: modo === "mesa" ? "Mesa " + r.numero_mesa + (soloMesa ? "" : " · " + r.cuenta) : r.mesero,
                     mesa: r.numero_mesa, secuencial: r.secuencial, id_mesero: r.id_mesero,
                     rondas: []
                 }
