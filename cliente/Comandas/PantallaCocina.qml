@@ -6,7 +6,8 @@ import QtQuick.Layouts
 // "=== SISTEMA DE COCINA ===" convertido en tablero de tres columnas.
 // Cada estado se avanza tocando su chip o los botones Iniciar y Lista.
 // En pantallas angostas se ve una columna a la vez: los contadores de arriba
-// sirven de pestañas.
+// sirven de pestañas. Dentro de cada columna las tarjetas se organizan por
+// tiempo, por mesa y cuenta, o por mesero.
 Item {
     id: pantalla
 
@@ -35,8 +36,14 @@ Item {
         return "pendiente"
     }
 
+    // Las rondas de una columna, organizadas según el selector. A cada una se
+    // le agrega "encabezado": el título de su grupo si es la primera del grupo.
     function rondasEn(estado) {
-        return rondas.filter(r => columnaDe(r) === estado)
+        const grupos = selector.agrupar(rondas.filter(r => columnaDe(r) === estado))
+        const lista = []
+        for (const g of grupos)
+            g.rondas.forEach((r, i) => lista.push(Object.assign({}, r, { encabezado: i === 0 ? g.titulo : "" })))
+        return lista
     }
 
     function cargar() {
@@ -181,6 +188,19 @@ Item {
                 visible: !pantalla.compacta
                 Layout.fillWidth: true
             }
+
+            SelectorOrden {
+                id: selector
+                visible: !pantalla.compacta
+            }
+        }
+
+        // En angosto el selector va en su propia fila
+        SelectorOrden {
+            visible: pantalla.compacta
+            Layout.leftMargin: Tema.espacio
+            modo: selector.modo
+            onModoChanged: selector.modo = modo
         }
 
         RowLayout {
@@ -242,14 +262,29 @@ Item {
                             model: columna.tarjetas
                             ScrollBar.vertical: ScrollBar {}
 
-                            delegate: TarjetaRonda {
-                                id: tarjetaRonda
+                            delegate: Column {
+                                id: celdaRonda
                                 required property var modelData
                                 width: listaColumna.width
-                                ronda: tarjetaRonda.modelData
-                                modo: "cocina"
-                                ahora: pantalla.ahora
-                                onCambiar: (ids, estado) => pantalla.cambiar(ids, estado)
+                                spacing: 6
+
+                                Label {
+                                    visible: celdaRonda.modelData.encabezado !== ""
+                                    width: parent.width
+                                    topPadding: 4
+                                    text: celdaRonda.modelData.encabezado
+                                    color: Tema.texto
+                                    font.bold: true
+                                    elide: Text.ElideRight
+                                }
+
+                                TarjetaRonda {
+                                    width: parent.width
+                                    ronda: celdaRonda.modelData
+                                    modo: "cocina"
+                                    ahora: pantalla.ahora
+                                    onCambiar: (ids, estado) => pantalla.cambiar(ids, estado)
+                                }
                             }
 
                             Label {

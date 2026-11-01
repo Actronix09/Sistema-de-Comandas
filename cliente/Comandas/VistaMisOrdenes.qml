@@ -6,7 +6,9 @@ import QtQuick.Layouts
 // "Ver Mis Ordenes": lo que levantó este mesero, en tarjetas (una por ronda),
 // con el estado de cada comanda. A diferencia de la terminal, filtra en el
 // servidor por el id del mesero (no por el nombre) y se actualiza sola cuando
-// cocina cambia algo.
+// cocina cambia algo. Se organizan por tiempo, por mesa y cuenta, o por
+// mesero; esta última muestra también las órdenes de los demás meseros, para
+// ayudar a entregar lo que ya está listo.
 Item {
     id: vista
 
@@ -15,11 +17,13 @@ Item {
     property var rondas: []
     property date ahora: new Date()
     readonly property bool compacta: width < 700
+    readonly property var grupos: selector.agrupar(rondas)
 
     function cargar() {
         if (!Api.usuarioActual)
             return
-        const filtro = { estacion: "todas", id_mesero: Api.usuarioActual.id_usuario,
+        const filtro = { estacion: "todas",
+                         id_mesero: selector.modo === "mesero" ? null : Api.usuarioActual.id_usuario,
                          estados: soloActivas ? ["pendiente", "en_preparacion", "lista"] : null }
         Api.listarRondas(filtro, function (r) {
             if (!vista)
@@ -81,7 +85,7 @@ Item {
             rowSpacing: 0
             Label {
                 Layout.fillWidth: true
-                text: "Mis órdenes"
+                text: selector.modo === "mesero" ? "Órdenes por mesero" : "Mis órdenes"
                 color: Tema.texto
                 font.pixelSize: Tema.letraTitulo
                 font.bold: true
@@ -108,6 +112,11 @@ Item {
             }
         }
 
+        SelectorOrden {
+            id: selector
+            onModoChanged: vista.cargar()
+        }
+
         Label {
             Layout.fillWidth: true
             text: "Se actualiza sola cuando cocina o bar cambian algo. Lo que está listo se entrega desde aquí."
@@ -122,27 +131,53 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
-            contentHeight: flujo.implicitHeight
+            contentHeight: columnaGrupos.implicitHeight
             boundsBehavior: Flickable.StopAtBounds
             ScrollBar.vertical: ScrollBar {}
 
-            Flow {
-                id: flujo
+            Column {
+                id: columnaGrupos
                 width: desplazable.width
-                spacing: 12
-                readonly property int columnas: Math.max(1, Math.floor((width + spacing) / (320 + spacing)))
-                readonly property real anchoTarjeta: (width - (columnas - 1) * spacing) / columnas
+                spacing: 18
 
                 Repeater {
-                    model: vista.rondas
-                    delegate: TarjetaRonda {
-                        id: tarjeta
+                    model: vista.grupos
+                    delegate: Column {
+                        id: grupo
                         required property var modelData
-                        width: flujo.anchoTarjeta
-                        ronda: tarjeta.modelData
-                        modo: "mesero"
-                        ahora: vista.ahora
-                        onCambiar: (ids, estado) => vista.cambiar(ids, estado)
+                        width: columnaGrupos.width
+                        spacing: 8
+
+                        Label {
+                            visible: grupo.modelData.titulo !== ""
+                            width: parent.width
+                            text: grupo.modelData.titulo + " (" + grupo.modelData.rondas.length + ")"
+                            color: Tema.texto
+                            font.pixelSize: Tema.letraMediana
+                            font.bold: true
+                            elide: Text.ElideRight
+                        }
+
+                        Flow {
+                            id: flujo
+                            width: parent.width
+                            spacing: 12
+                            readonly property int columnas: Math.max(1, Math.floor((width + spacing) / (320 + spacing)))
+                            readonly property real anchoTarjeta: (width - (columnas - 1) * spacing) / columnas
+
+                            Repeater {
+                                model: grupo.modelData.rondas
+                                delegate: TarjetaRonda {
+                                    id: tarjeta
+                                    required property var modelData
+                                    width: flujo.anchoTarjeta
+                                    ronda: tarjeta.modelData
+                                    modo: "mesero"
+                                    ahora: vista.ahora
+                                    onCambiar: (ids, estado) => vista.cambiar(ids, estado)
+                                }
+                            }
+                        }
                     }
                 }
             }

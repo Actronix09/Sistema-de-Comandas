@@ -53,6 +53,7 @@ qt_add_qml_module(
     Comandas/PantallaLogin.qml
     Comandas/PantallaMesero.qml
     Comandas/PantallaPendiente.qml
+    Comandas/SelectorOrden.qml
     Comandas/TarjetaProducto.qml
     Comandas/TarjetaRonda.qml
     Comandas/Tema.qml
