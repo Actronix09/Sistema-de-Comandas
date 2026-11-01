@@ -37,6 +37,7 @@ qt_add_qml_module(
     QML_FILES
     Main.qml
     Comandas/AdminIngredientes.qml
+    Comandas/AdminUsuarios.qml
     Comandas/Api.qml
     Comandas/Aviso.qml
     Comandas/Avisos.qml
@@ -44,6 +45,7 @@ qt_add_qml_module(
     Comandas/DialogoConfirmar.qml
     Comandas/DialogoConfirmarOrden.qml
     Comandas/DialogoIngrediente.qml
+    Comandas/DialogoUsuario.qml
     Comandas/ElegirCuenta.qml
     Comandas/Encabezado.qml
     Comandas/Etiqueta.qml

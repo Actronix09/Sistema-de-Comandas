@@ -45,16 +45,6 @@ Item {
             ],
             api: ["GET /usuarios/disponible?usuario=", "POST /usuarios"]
         },
-        usuarios: {
-            ejercicio: 4, titulo: "Administrador de usuarios", origen: "Admin › Administrador de usuarios",
-            puntos: [
-                "Lista con nombre, usuario y rol. Nunca muestra hashes de contraseña.",
-                "Alta con el formulario del ejercicio 3, más el rol cajero/administrador (nivel de acceso y caja asignada).",
-                "Edición: si cambia la contraseña, se valida otra vez y el servidor guarda solo el hash. En el sistema en C se guardaba en claro.",
-                "Baja con confirmación; impide borrar tu propia cuenta."
-            ],
-            api: ["GET /usuarios", "POST /usuarios", "PATCH /usuarios/{id}", "DELETE /usuarios/{id}"]
-        },
         productos: {
             ejercicio: 5, titulo: "Administrador de productos", origen: "Admin › Administrador de productos",
             puntos: [

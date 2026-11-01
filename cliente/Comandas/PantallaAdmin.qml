@@ -4,7 +4,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 // "MENU ADMINISTRADOR": caja, usuarios, productos, ingredientes y logs.
-// Caja e Ingredientes están completas; las otras tres secciones son tus ejercicios.
+// Caja, Usuarios e Ingredientes están completas; las otras dos son tus ejercicios.
 // El nivel cajero no ve el menú: entra directo a la Caja.
 Item {
     id: pantalla
@@ -16,6 +16,8 @@ Item {
     function abrirSeccion(clave) {
         if (clave === "caja")
             interna.push(cCaja)
+        else if (clave === "usuarios")
+            interna.push(cUsuarios)
         else if (clave === "ingredientes")
             interna.push(cIngredientes)
         else
@@ -79,8 +81,8 @@ Item {
                         model: [
                             { clave: "caja", titulo: "Caja", lista: true,
                               descripcion: "Cobrar las cuentas: pagos parciales, propina para el mesero y cierre." },
-                            { clave: "usuarios", titulo: "Usuarios", lista: false,
-                              descripcion: "Altas, edición y bajas de cuentas, con su rol y los datos de su puesto." },
+                            { clave: "usuarios", titulo: "Usuarios", lista: true,
+                              descripcion: "Altas, edición y bajas de usuarios, con su rol y los datos de su puesto." },
                             { clave: "productos", titulo: "Productos", lista: false,
                               descripcion: "Catálogo con descripción, categoría, precio, variantes y receta." },
                             { clave: "ingredientes", titulo: "Ingredientes", lista: true,
@@ -151,6 +153,13 @@ Item {
         id: cCaja
         PantallaCaja {
             puedeVolver: pantalla.esAdmin
+            onVolver: interna.pop()
+        }
+    }
+
+    Component {
+        id: cUsuarios
+        AdminUsuarios {
             onVolver: interna.pop()
         }
     }

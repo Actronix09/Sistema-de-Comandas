@@ -36,8 +36,11 @@ import QtQuick
 //      detalleCuenta        nueva, por definir
 //      registrarPago        OP_REGISTRAR_PAGO (nueva)
 //      cerrarCuenta         OP_CERRAR_CUENTA (nueva)
-//  Las señales (comandasCambiaron, cuentasCambiaron, inventarioCambio y
-//  ordenLista) serán los avisos que el servidor manda por el WebSocket;
+//      listarUsuarios       OP_LISTAR_USUARIOS
+//      guardarUsuario       OP_CREAR_USUARIO   o   OP_MODIFICAR_USUARIO
+//      eliminarUsuario      OP_ELIMINAR_USUARIO
+//  Las señales (comandasCambiaron, cuentasCambiaron, inventarioCambio,
+//  usuariosCambiaron y ordenLista) serán los avisos que el servidor manda por el WebSocket;
 //  ordenLista es COMANDA_LISTA, que solo le llega al mesero de esa orden.
 // ---------------------------------------------------------------------------
 QtObject {
@@ -46,6 +49,7 @@ QtObject {
     signal comandasCambiaron()
     signal cuentasCambiaron()
     signal inventarioCambio()
+    signal usuariosCambiaron()
     // datos: { id_mesero, numero_mesa, cuenta, productos: ["1× Margarita", ...] }
     signal ordenLista(var datos)
 
@@ -702,6 +706,158 @@ QtObject {
     // esquema falta decidir de dónde sale la estación de cada producto.
     function estacionDe(categoria) {
         return categoria === "bebidas" ? "bar" : "cocina"
+    }
+
+    // ============================ Usuarios ============================
+
+    // motivo_sin_baja explica por qué no se puede eliminar; vacío si sí se puede.
+    function listarUsuarios(cb) {
+        const negado = _exigirAdministrador()
+        if (negado) {
+            _responder(cb, negado)
+            return
+        }
+        const lista = _usuarios.map(function (u) {
+            const copia = _sinContrasena(u)
+            copia.es_yo = u.id_usuario === usuarioActual.id_usuario
+            copia.motivo_sin_baja = _motivoSinBaja(u)
+            return copia
+        })
+        lista.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
+        _responder(cb, _ok(lista))
+    }
+
+    // datos: { id_usuario (si se edita), nombre, usuario, fecha_nacimiento,
+    //          contrasena (vacía al editar = no cambia), rol,
+    //          turno_asignado | estacion_asignada | nivel_acceso y caja_asignada }
+    function guardarUsuario(datos, cb) {
+        const negado = _exigirAdministrador()
+        if (negado) {
+            _responder(cb, negado)
+            return
+        }
+        const actual = datos.id_usuario ? _usuario(datos.id_usuario) : null
+        if (datos.id_usuario && !actual) {
+            _responder(cb, _falla("ERROR", "El usuario ya no existe"))
+            return
+        }
+        const error = _errorUsuario(datos, actual)
+        if (error) {
+            _responder(cb, _falla("VALIDACION_FALLIDA", error))
+            return
+        }
+        const u = actual || { id_usuario: _usuarios.reduce((m, x) => Math.max(m, x.id_usuario), 0) + 1, rol: datos.rol }
+        u.nombre = datos.nombre.trim()
+        u.usuario = datos.usuario.trim().toLowerCase()
+        u.fecha_nacimiento = datos.fecha_nacimiento.trim()
+        if (datos.contrasena)
+            u.contrasena = datos.contrasena
+        if (u.rol === "mesero") {
+            u.turno_asignado = datos.turno_asignado
+        } else if (u.rol === "bar_cocina") {
+            u.estacion_asignada = datos.estacion_asignada
+        } else {
+            u.nivel_acceso = datos.nivel_acceso
+            u.caja_asignada = Number(datos.caja_asignada)
+        }
+        if (!actual)
+            _usuarios.push(u)
+        if (u.id_usuario === usuarioActual.id_usuario)
+            usuarioActual = _sinContrasena(u)
+        usuariosCambiaron()
+        _responder(cb, _ok(_sinContrasena(u), actual ? "Usuario actualizado" : "Se creó el usuario " + u.usuario))
+    }
+
+    function eliminarUsuario(idUsuario, cb) {
+        const negado = _exigirAdministrador()
+        if (negado) {
+            _responder(cb, negado)
+            return
+        }
+        const u = _usuario(idUsuario)
+        if (!u) {
+            _responder(cb, _falla("ERROR", "El usuario ya no existe"))
+            return
+        }
+        const motivo = _motivoSinBaja(u)
+        if (motivo) {
+            _responder(cb, _falla("VALIDACION_FALLIDA", motivo))
+            return
+        }
+        _usuarios.splice(_usuarios.indexOf(u), 1)
+        usuariosCambiaron()
+        _responder(cb, _ok(null, "Se eliminó a " + u.nombre))
+    }
+
+    function _errorUsuario(datos, actual) {
+        const nombre = String(datos.nombre || "").trim()
+        const usuario = String(datos.usuario || "").trim().toLowerCase()
+        const fecha = String(datos.fecha_nacimiento || "").trim()
+        if (nombre.length === 0 || nombre.length > 120)
+            return "El nombre es obligatorio y admite hasta 120 caracteres"
+        if (!/^[a-z0-9._-]{1,40}$/.test(usuario))
+            return "El usuario admite hasta 40 letras sin acento, números, punto, guion y guion bajo"
+        const repetido = _usuarios.find(u => u.usuario === usuario && u !== actual)
+        if (repetido)
+            return "El usuario «" + usuario + "» ya existe"
+        if (!_fechaValida(fecha))
+            return "Escribe la fecha de nacimiento como AAAA-MM-DD"
+        if (fecha < "1900-01-01" || fecha > Qt.formatDate(new Date(), "yyyy-MM-dd"))
+            return "La fecha de nacimiento está fuera de rango"
+        if (!actual && !datos.contrasena)
+            return "Escribe una contraseña"
+        if (datos.contrasena && !_contrasenaValida(datos.contrasena))
+            return "La contraseña necesita 8 caracteres o más, una mayúscula, una minúscula, un número y 2 símbolos de * / _ - + ."
+
+        // El rol va en la clave foránea de cada subtipo con ON UPDATE RESTRICT: no cambia
+        const rol = actual ? actual.rol : datos.rol
+        if (actual && datos.rol !== actual.rol)
+            return "El rol no se puede cambiar; crea otro usuario"
+        if (rol === "mesero") {
+            if (["matutino", "vespertino", "nocturno"].indexOf(datos.turno_asignado) < 0)
+                return "Elige el turno"
+        } else if (rol === "bar_cocina") {
+            if (["bar", "cocina"].indexOf(datos.estacion_asignada) < 0)
+                return "Elige la estación"
+        } else if (rol === "cajero_admin") {
+            if (["cajero", "administrador"].indexOf(datos.nivel_acceso) < 0)
+                return "Elige el nivel de acceso"
+            if (!Number.isInteger(Number(datos.caja_asignada)) || Number(datos.caja_asignada) <= 0)
+                return "La caja debe ser un número entero mayor que 0"
+            // Como nadie se puede bajar de nivel a sí mismo, siempre queda un administrador
+            if (actual && actual.id_usuario === usuarioActual.id_usuario && datos.nivel_acceso !== "administrador")
+                return "No puedes quitarte a ti mismo el nivel de administrador"
+        } else {
+            return "Elige el rol"
+        }
+        return ""
+    }
+
+    // Las claves foráneas hacia los subtipos son ON DELETE RESTRICT: quien ya
+    // atendió mesas, preparó, canceló o cobró se queda para no perder la historia.
+    function _motivoSinBaja(u) {
+        const id = u.id_usuario
+        if (usuarioActual && id === usuarioActual.id_usuario)
+            return "No puedes eliminar tu propia cuenta"
+        if (_mesas.some(m => m.id_mesero === id)
+                || _comandas.some(c => c.id_mesero === id || c.id_bar_cocina === id || c.id_cajero_cancela === id)
+                || _pagos.some(p => p.id_cajero === id || p.id_mesero_propina === id))
+            return u.nombre + " tiene mesas, comandas o pagos registrados; no se puede eliminar"
+        return ""
+    }
+
+    // Las mismas reglas que validar_password de usuario.c
+    function _contrasenaValida(contrasena) {
+        return contrasena.length >= 8 && /[0-9]/.test(contrasena) && /[A-Z]/.test(contrasena) && /[a-z]/.test(contrasena)
+                && (contrasena.match(/[*\/\-_+.]/g) || []).length >= 2
+    }
+
+    function _fechaValida(texto) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(texto))
+            return false
+        const partes = texto.split("-").map(Number)
+        const fecha = new Date(partes[0], partes[1] - 1, partes[2])
+        return fecha.getMonth() === partes[1] - 1 && fecha.getDate() === partes[2]
     }
 
     // ========================== Uso interno ==========================
