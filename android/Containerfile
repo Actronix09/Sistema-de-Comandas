@@ -1,5 +1,10 @@
-# Compila el cliente para Android y lo prueba en un emulador. No lleva el código:
-# compose monta cliente/ para no reconstruir esta imagen con cada cambio.
+# Compila el cliente para Android ARM64, la arquitectura de los teléfonos, y lo
+# prueba en un emulador. No lleva el código: compose monta cliente/ para no
+# reconstruir esta imagen con cada cambio.
+#
+# En una PC x86 el emulador no arranca imágenes ARM64 ("System image must match
+# the host architecture"). La imagen google_apis x86_64 sí trae libndk_translation,
+# que corre el código ARM64 de la app; el resto de Android sigue siendo x86_64.
 FROM docker.io/library/debian:trixie-slim
 
 ARG QT_VERSION=6.8.3
@@ -17,7 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 ENV ANDROID_SDK_ROOT=/opt/android ANDROID_HOME=/opt/android ANDROID_AVD_HOME=/opt/avd \
     JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
-    QT_HOST=/opt/Qt/${QT_VERSION}/gcc_64 QT_ANDROID=/opt/Qt/${QT_VERSION}/android_x86_64 \
+    QT_HOST=/opt/Qt/${QT_VERSION}/gcc_64 QT_ANDROID=/opt/Qt/${QT_VERSION}/android_arm64_v8a \
     ANDROID_NDK_ROOT=/opt/android/ndk/${ANDROID_NDK} \
     PATH=/opt/android/cmdline-tools/latest/bin:/opt/android/platform-tools:/opt/android/emulator:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
@@ -30,13 +35,27 @@ RUN curl -fsSL -o /tmp/herramientas.zip \
     && (yes | sdkmanager --licenses >/dev/null) \
     && sdkmanager --install "platform-tools" "emulator" "platforms;android-${ANDROID_API}" \
         "build-tools;${ANDROID_API}.0.0" "ndk;${ANDROID_NDK}" \
-        "system-images;android-${ANDROID_API};default;x86_64" >/dev/null \
+        "system-images;android-${ANDROID_API};google_apis;x86_64" >/dev/null \
     && echo no | avdmanager create avd -n comandas -d pixel_6 \
-        -k "system-images;android-${ANDROID_API};default;x86_64" >/dev/null
+        -k "system-images;android-${ANDROID_API};google_apis;x86_64" >/dev/null
 
 RUN PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install aqtinstall \
-    && aqt install-qt linux android ${QT_VERSION} android_x86_64 -O /opt/Qt --autodesktop \
+    && aqt install-qt linux android ${QT_VERSION} android_arm64_v8a -O /opt/Qt --autodesktop \
     && rm -f aqtinstall.log
+
+# scrcpy muestra la pantalla del emulador en una ventana y le manda los clics. La
+# ventana propia del emulador se queda en gris cuando dibuja por software.
+ARG SCRCPY_VERSION=5.0.1
+ARG SCRCPY_SHA256=9f969d30cc574816077edecda65719c1c70b0aee1df1ba5fa00779ac07b8fd6e
+RUN apt-get update && apt-get install -y --no-install-recommends libgl1-mesa-dri \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSL -o /tmp/scrcpy.tar.gz \
+        https://github.com/Genymobile/scrcpy/releases/download/v${SCRCPY_VERSION}/scrcpy-linux-x86_64-v${SCRCPY_VERSION}.tar.gz \
+    && echo "${SCRCPY_SHA256}  /tmp/scrcpy.tar.gz" | sha256sum -c - \
+    && mkdir -p /opt/scrcpy \
+    && tar -xzf /tmp/scrcpy.tar.gz -C /opt/scrcpy --strip-components=1 \
+    && rm /tmp/scrcpy.tar.gz
+ENV ADB=/opt/android/platform-tools/adb
 
 COPY android/probar.sh /usr/local/bin/probar-android
 CMD ["probar-android"]

@@ -4,6 +4,7 @@
 #   podman compose up -d --build       base y servidor
 #   podman compose --profile cliente up --build cliente
 #   podman compose --profile android up --build android
+#   podman compose --profile android-ventana up --build android-ventana
 #
 # Ojo: "podman compose down -v" borra el volumen con todos los datos.
 name: comandas
@@ -89,9 +90,26 @@ services:
       - ./usuario.h:/src/usuario.h:ro
       - ./android/salida:/salida
       - comandas-gradle:/root/.gradle
+      # Con la misma clave de firma, el APK nuevo actualiza al que ya está en el teléfono
+      - comandas-android-clave:/root/.android
+
+  # El mismo emulador, con una ventana de scrcpy para usar la app con el mouse
+  android-ventana:
+    extends:
+      service: android
+    profiles: [android-ventana]
+    # X11 comparte la imagen de la ventana por memoria; sin esto se queda vacía
+    ipc: host
+    environment:
+      VENTANA: "1"
+      DISPLAY: ${DISPLAY:?se necesita una sesión gráfica}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
 
 volumes:
   comandas-pgdata:
     name: comandas-pgdata
   comandas-gradle:
     name: comandas-gradle
+  comandas-android-clave:
+    name: comandas-android-clave
