@@ -30,6 +30,14 @@ Item {
     readonly property var visibles: cuentas.filter(c => !soloAbiertas || c.estado === "abierta")
     readonly property var grupos: selector.agrupar(visibles)
 
+    // Botón Atrás de Android: del detalle de una cuenta regresa a la lista
+    function atras() {
+        if (!compacta || elegida === null)
+            return false
+        elegida = null
+        return true
+    }
+
     function cargar() {
         Api.listarCuentasCaja(function (r) {
             if (!caja)

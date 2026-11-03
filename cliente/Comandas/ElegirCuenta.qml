@@ -15,6 +15,13 @@ Item {
 
     readonly property bool compacta: width < 700
 
+    function atras() {
+        if (mesa === null)
+            return false
+        mesa = null
+        return true
+    }
+
     function reiniciar() {
         mesa = null
         cuentas = []

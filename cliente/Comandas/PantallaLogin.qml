@@ -51,7 +51,9 @@ Item {
             if (pantalla && r.codigo === "OK")
                 pantalla.evento = r.datos
         })
-        campoUsuario.forceActiveFocus()
+        // En Android el foco abriría el teclado y taparía la pantalla
+        if (Qt.platform.os !== "android")
+            campoUsuario.forceActiveFocus()
     }
 
     Rectangle {

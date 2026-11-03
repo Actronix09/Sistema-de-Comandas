@@ -46,6 +46,29 @@ ApplicationWindow {
         pila.push(cPendiente, { clave: clave })
     }
 
+    // Botón Atrás de Android: primero retrocede dentro de la pantalla actual. Regresa
+    // false solo en el login, y entonces la app se cierra como cualquier otra.
+    function atras() {
+        const actual = pila.currentItem
+        if (actual.atras && actual.atras())
+            return true
+        if (pila.depth > 1) {
+            pila.pop()
+            return true
+        }
+        if (Api.usuarioActual !== null) {
+            confirmarSalida.open()
+            return true
+        }
+        return false
+    }
+
+    // En Android, Atrás llega aquí; en escritorio es cerrar la ventana y no se detiene
+    onClosing: (cierre) => {
+        if (Qt.platform.os === "android" && ventana.atras())
+            cierre.accepted = false
+    }
+
     StackView {
         id: pila
         anchors.fill: parent
@@ -86,6 +109,14 @@ ApplicationWindow {
         PantallaPendiente {
             onVolver: pila.pop()
         }
+    }
+
+    DialogoConfirmar {
+        id: confirmarSalida
+        titulo: "¿Cerrar sesión?"
+        mensaje: "Si tienes una orden sin confirmar, se perderá."
+        textoAceptar: "Cerrar sesión"
+        onConfirmado: ventana.cerrarSesion()
     }
 
     Aviso {

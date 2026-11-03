@@ -13,6 +13,18 @@ Item {
 
     readonly property bool esAdmin: Api.esAdministrador
 
+    // Botón Atrás de Android; regresa false si ya no hay a dónde retroceder
+    function atras() {
+        const actual = interna.currentItem
+        if (actual.atras && actual.atras())
+            return true
+        if (interna.depth > 1) {
+            interna.pop()
+            return true
+        }
+        return false
+    }
+
     function abrirSeccion(clave) {
         if (clave === "caja")
             interna.push(cCaja)

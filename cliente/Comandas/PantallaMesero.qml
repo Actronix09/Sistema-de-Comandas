@@ -12,6 +12,15 @@ Item {
 
     property int sinVer: 0
 
+    // Botón Atrás de Android; regresa false si ya no hay a dónde retroceder
+    function atras() {
+        if (pestanas.currentIndex !== 0) {
+            pestanas.currentIndex = 0
+            return true
+        }
+        return vistaOrden.atras()
+    }
+
     Connections {
         target: Api
         function onOrdenLista(datos) {

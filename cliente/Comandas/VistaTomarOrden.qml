@@ -27,6 +27,19 @@ Item {
 
     ListModel { id: carrito }
 
+    // Botón Atrás de Android: el mismo camino de vuelta que los botones de la pantalla
+    function atras() {
+        if (compacta && ordenDesplegada) {
+            ordenDesplegada = false
+            return true
+        }
+        if (cuenta !== null) {
+            cuenta = null
+            return true
+        }
+        return elegir.atras()
+    }
+
     function cargar() {
         cargando = true
         Api.listarProductos(function (r) {
