@@ -19,8 +19,11 @@ Item {
     // Los enlaces que leen el carrito dependen de esta versión, que sube en
     // cada cambio; así las tarjetas y el total se recalculan.
     property int versionCarrito: 0
-    // En pantallas angostas (teléfono) la orden va debajo del catálogo
+    // En pantallas angostas (teléfono) la orden es un botón abajo que se despliega
+    // sobre el catálogo; en las anchas es un panel fijo a un lado.
     readonly property bool compacta: width < 700
+    readonly property int altoBotonOrden: 56
+    property bool ordenDesplegada: false
 
     ListModel { id: carrito }
 
@@ -158,6 +161,7 @@ Item {
             if (r.codigo === "OK") {
                 dialogo.close()
                 vista.vaciar()
+                vista.ordenDesplegada = false
                 Avisos.exito(r.mensaje)
                 // Lista para la siguiente mesa
                 vista.cuenta = null
@@ -186,155 +190,201 @@ Item {
         }
     }
 
-    GridLayout {
+    // ======================= Catálogo =======================
+    ColumnLayout {
+        id: catalogo
         anchors.fill: parent
         anchors.margins: vista.compacta ? Tema.espacio : Tema.margen
+        // Deja libre el lugar del botón (teléfono) o del panel (pantalla ancha)
+        anchors.rightMargin: vista.compacta ? Tema.espacio : panelOrden.width + 2 * Tema.margen
+        anchors.bottomMargin: vista.compacta ? vista.altoBotonOrden + 2 * Tema.espacio : Tema.margen
         visible: vista.cuenta !== null
-        columns: vista.compacta ? 1 : 2
-        columnSpacing: Tema.margen
-        rowSpacing: Tema.espacio
+        spacing: 10
 
-        // ======================= Catálogo =======================
-        ColumnLayout {
-            id: catalogo
+        // A dónde va la orden; "Cambiar" regresa a las cuentas sin perder lo elegido
+        Rectangle {
             Layout.fillWidth: true
-            Layout.fillHeight: true
-            spacing: 10
+            implicitHeight: filaDestino.implicitHeight + 12
+            radius: Tema.radio
+            color: Qt.rgba(Tema.acento.r, Tema.acento.g, Tema.acento.b, 0.10)
+            border.color: Qt.rgba(Tema.acento.r, Tema.acento.g, Tema.acento.b, 0.35)
 
-            // A dónde va la orden; "Cambiar" regresa a las cuentas sin perder lo elegido
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: filaDestino.implicitHeight + 12
-                radius: Tema.radio
-                color: Qt.rgba(Tema.acento.r, Tema.acento.g, Tema.acento.b, 0.10)
-                border.color: Qt.rgba(Tema.acento.r, Tema.acento.g, Tema.acento.b, 0.35)
-
-                RowLayout {
-                    id: filaDestino
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.leftMargin: 12
-                    anchors.rightMargin: 4
-                    Label {
-                        Layout.fillWidth: true
-                        text: vista.cuenta ? "Mesa " + vista.mesa.numero_mesa + " · " + vista.cuenta.cuenta : ""
-                        color: Tema.texto
-                        font.pixelSize: Tema.letraMediana
-                        font.bold: true
-                        elide: Text.ElideRight
-                    }
-                    Button {
-                        text: "Cambiar"
-                        flat: true
-                        onClicked: vista.cuenta = null
-                    }
-                }
-            }
-
-            GridLayout {
-                Layout.fillWidth: true
-                // El buscador baja a otra línea si no caben las categorías a su lado
-                readonly property bool angosta: catalogo.width < 640
-                columns: angosta ? 1 : 2
-                columnSpacing: 6
-                rowSpacing: 4
-
-                // Flow acomoda las categorías en otra línea si no caben
-                Flow {
-                    Layout.fillWidth: true
-                    spacing: 6
-                    Repeater {
-                        model: [
-                            { clave: "todas", texto: "Todos" },
-                            { clave: "alimentos", texto: "Alimentos" },
-                            { clave: "bebidas", texto: "Bebidas" },
-                            { clave: "dulceria", texto: "Dulcería" }
-                        ]
-                        delegate: Button {
-                            id: botonCategoria
-                            required property var modelData
-                            text: botonCategoria.modelData.texto
-                            highlighted: vista.categoria === botonCategoria.modelData.clave
-                            flat: !highlighted
-                            onClicked: {
-                                vista.categoria = botonCategoria.modelData.clave
-                                vista.filtrar()
-                            }
-                        }
-                    }
-                }
-                TextField {
-                    id: busqueda
-                    Layout.fillWidth: parent.angosta
-                    Layout.preferredWidth: parent.angosta ? -1 : 280
-                    placeholderText: "Buscar producto o ingrediente…"
-                    onTextChanged: vista.filtrar()
-                }
-            }
-
-            GridView {
-                id: cuadricula
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                readonly property int columnas: Math.max(1, Math.floor(width / 230))
-                cellWidth: Math.floor(width / columnas)
-                cellHeight: 244
-                model: vista.visibles
-                ScrollBar.vertical: ScrollBar {}
-
-                delegate: Item {
-                    id: celda
-                    required property var modelData
-                    required property int index
-                    width: cuadricula.cellWidth
-                    height: cuadricula.cellHeight
-
-                    TarjetaProducto {
-                        anchors.fill: parent
-                        anchors.margins: 6
-                        producto: celda.modelData
-                        cantidad: {
-                            vista.versionCarrito   // dependencia: recalcular al cambiar el carrito
-                            return vista.cantidadDe(celda.modelData.id_producto)
-                        }
-                        onAgregar: vista.agregar(celda.modelData)
-                        onQuitar: vista.quitar(celda.modelData.id_producto)
-                    }
-                }
-
+            RowLayout {
+                id: filaDestino
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.leftMargin: 12
+                anchors.rightMargin: 4
                 Label {
-                    anchors.centerIn: parent
-                    visible: !vista.cargando && vista.visibles.length === 0
-                    text: "No hay productos que coincidan"
-                    color: Tema.textoSuave
+                    Layout.fillWidth: true
+                    text: vista.cuenta ? "Mesa " + vista.mesa.numero_mesa + " · " + vista.cuenta.cuenta : ""
+                    color: Tema.texto
+                    font.pixelSize: Tema.letraMediana
+                    font.bold: true
+                    elide: Text.ElideRight
                 }
-                BusyIndicator {
-                    anchors.centerIn: parent
-                    running: vista.cargando && vista.productos.length === 0
+                Button {
+                    text: "Cambiar"
+                    flat: true
+                    onClicked: vista.cuenta = null
                 }
             }
         }
 
-        // ======================= Orden actual =======================
-        Rectangle {
-            Layout.fillWidth: vista.compacta
-            Layout.preferredWidth: vista.compacta ? -1 : Math.min(370, Math.round(vista.width * 0.38))
-            Layout.fillHeight: !vista.compacta
-            Layout.preferredHeight: vista.compacta ? Math.round(vista.height * 0.42) : -1
-            radius: Tema.radio
-            color: Tema.superficie
-            border.color: Tema.borde
+        GridLayout {
+            Layout.fillWidth: true
+            // El buscador baja a otra línea si no caben las categorías a su lado
+            readonly property bool angosta: catalogo.width < 640
+            columns: angosta ? 1 : 2
+            columnSpacing: 6
+            rowSpacing: 4
+
+            // Flow acomoda las categorías en otra línea si no caben
+            Flow {
+                Layout.fillWidth: true
+                spacing: 6
+                Repeater {
+                    model: [
+                        { clave: "todas", texto: "Todos" },
+                        { clave: "alimentos", texto: "Alimentos" },
+                        { clave: "bebidas", texto: "Bebidas" },
+                        { clave: "dulceria", texto: "Dulcería" }
+                    ]
+                    delegate: Button {
+                        id: botonCategoria
+                        required property var modelData
+                        text: botonCategoria.modelData.texto
+                        highlighted: vista.categoria === botonCategoria.modelData.clave
+                        flat: !highlighted
+                        onClicked: {
+                            vista.categoria = botonCategoria.modelData.clave
+                            vista.filtrar()
+                        }
+                    }
+                }
+            }
+            TextField {
+                id: busqueda
+                Layout.fillWidth: parent.angosta
+                Layout.preferredWidth: parent.angosta ? -1 : 280
+                placeholderText: "Buscar producto o ingrediente…"
+                onTextChanged: vista.filtrar()
+            }
+        }
+
+        GridView {
+            id: cuadricula
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            readonly property int columnas: Math.max(1, Math.floor(width / 230))
+            cellWidth: Math.floor(width / columnas)
+            cellHeight: 244
+            model: vista.visibles
+            ScrollBar.vertical: ScrollBar {}
+
+            delegate: Item {
+                id: celda
+                required property var modelData
+                required property int index
+                width: cuadricula.cellWidth
+                height: cuadricula.cellHeight
+
+                TarjetaProducto {
+                    anchors.fill: parent
+                    anchors.margins: 6
+                    producto: celda.modelData
+                    cantidad: {
+                        vista.versionCarrito   // dependencia: recalcular al cambiar el carrito
+                        return vista.cantidadDe(celda.modelData.id_producto)
+                    }
+                    onAgregar: vista.agregar(celda.modelData)
+                    onQuitar: vista.quitar(celda.modelData.id_producto)
+                }
+            }
+
+            Label {
+                anchors.centerIn: parent
+                visible: !vista.cargando && vista.visibles.length === 0
+                text: "No hay productos que coincidan"
+                color: Tema.textoSuave
+            }
+            BusyIndicator {
+                anchors.centerIn: parent
+                running: vista.cargando && vista.productos.length === 0
+            }
+        }
+    }
+
+    // Al tocar fuera de la orden desplegada se pliega
+    Rectangle {
+        anchors.fill: parent
+        visible: vista.cuenta !== null && vista.compacta && vista.ordenDesplegada
+        color: Qt.rgba(0, 0, 0, 0.4)
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: vista.ordenDesplegada = false
+        }
+    }
+
+    // ======================= Orden actual =======================
+    Rectangle {
+        id: panelOrden
+        readonly property bool plegada: vista.compacta && !vista.ordenDesplegada
+
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: vista.compacta ? Tema.espacio : Tema.margen
+        visible: vista.cuenta !== null
+        width: vista.compacta ? vista.width - 2 * Tema.espacio : Math.min(370, Math.round(vista.width * 0.38))
+        height: {
+            if (!vista.compacta)
+                return vista.height - 2 * Tema.margen
+            return vista.ordenDesplegada ? Math.round(vista.height * 0.8) : vista.altoBotonOrden
+        }
+        radius: Tema.radio
+        color: plegada ? "transparent" : Tema.superficie
+        border.color: Tema.borde
+        border.width: plegada ? 0 : 1
+        clip: !plegada
+
+        Behavior on height {
+            enabled: vista.compacta
+            NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 0
+
+            Button {
+                Layout.fillWidth: true
+                Layout.preferredHeight: vista.altoBotonOrden
+                visible: vista.compacta
+                topInset: 0
+                bottomInset: 0
+                highlighted: panelOrden.plegada
+                flat: !panelOrden.plegada
+                text: {
+                    vista.versionCarrito
+                    return "Orden actual (" + vista.unidades() + ")  " + (vista.ordenDesplegada ? "▼" : "▲")
+                }
+                onClicked: vista.ordenDesplegada = !vista.ordenDesplegada
+            }
 
             ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: Tema.margen
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.margins: Tema.margen
+                visible: !panelOrden.plegada
                 spacing: Tema.espacio
 
                 RowLayout {
                     Layout.fillWidth: true
+                    visible: !vista.compacta
                     Label {
                         text: "Orden actual"
                         color: Tema.texto
@@ -436,6 +486,9 @@ Item {
         titulo: "¿Vaciar la orden?"
         mensaje: "Se quitarán todos los productos de la orden actual."
         textoAceptar: "Vaciar"
-        onConfirmado: vista.vaciar()
+        onConfirmado: {
+            vista.vaciar()
+            vista.ordenDesplegada = false
+        }
     }
 }
