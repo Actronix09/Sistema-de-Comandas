@@ -24,9 +24,10 @@ APK=$(find /tmp/build -name '*.apk' | head -n 1)
 cp "$APK" /salida/cliente_comandas.apk
 [ -f /clave/debug.keystore ] || cp ~/.android/debug.keystore /clave/
 
-# Con swiftshader_indirect los botones de Material no se dibujan
+# Por omisión dibuja por software, porque funciona en cualquier equipo. Con
+# swiftshader_indirect los botones de Material no se dibujan.
 emulator -avd comandas -no-window -no-audio -no-boot-anim -no-snapshot \
-    -gpu swangle_indirect >/salida/emulador.log 2>&1 &
+    ${EMULADOR_GRAFICOS:--gpu swangle_indirect} >/salida/emulador.log 2>&1 &
 EMULADOR=$!
 trap 'kill "$EMULADOR" 2>/dev/null || true' EXIT
 
@@ -44,10 +45,14 @@ adb logcat -c
 adb shell am start -W -n "$PAQUETE/org.qtproject.qt.android.bindings.QtActivity"
 
 if [ "${VENTANA:-0}" = 1 ]; then
+    adb shell settings put global window_animation_scale 0
+    adb shell settings put global transition_animation_scale 0
+    adb shell settings put global animator_duration_scale 0
     echo "Listo: usa la app en la ventana que se abre. Termina al cerrarla."
     # Con OpenGL, dentro del contenedor scrcpy se queda sin abrir la ventana
     LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 /opt/scrcpy/scrcpy --no-audio \
-        --render-driver=software --window-title "Comandas en Android"
+        --render-driver=software --max-size=1024 --max-fps=30 \
+        --window-title "Comandas en Android"
     exit 0
 fi
 

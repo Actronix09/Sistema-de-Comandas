@@ -47,7 +47,7 @@ RUN PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install aqtinstall \
 # ventana propia del emulador se queda en gris cuando dibuja por software.
 ARG SCRCPY_VERSION=5.0.1
 ARG SCRCPY_SHA256=9f969d30cc574816077edecda65719c1c70b0aee1df1ba5fa00779ac07b8fd6e
-RUN apt-get update && apt-get install -y --no-install-recommends libgl1-mesa-dri \
+RUN apt-get update && apt-get install -y --no-install-recommends libgl1-mesa-dri libvulkan1 mesa-vulkan-drivers \
     && rm -rf /var/lib/apt/lists/* \
     && curl -fsSL -o /tmp/scrcpy.tar.gz \
         https://github.com/Genymobile/scrcpy/releases/download/v${SCRCPY_VERSION}/scrcpy-linux-x86_64-v${SCRCPY_VERSION}.tar.gz \

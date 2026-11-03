@@ -100,9 +100,13 @@ services:
     profiles: [android-ventana]
     # X11 comparte la imagen de la ventana por memoria; sin esto se queda vacía
     ipc: host
+    # Con la tarjeta gráfica del equipo el emulador gasta mucho menos procesador
+    devices:
+      - /dev/dri
     environment:
       VENTANA: "1"
       DISPLAY: ${DISPLAY:?se necesita una sesión gráfica}
+      EMULADOR_GRAFICOS: -gpu host
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
 
