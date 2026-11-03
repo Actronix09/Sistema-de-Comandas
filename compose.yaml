@@ -91,7 +91,7 @@ services:
       - ./android/salida:/salida
       - comandas-gradle:/root/.gradle
       # Con la misma clave de firma, el APK nuevo actualiza al que ya está en el teléfono
-      - comandas-android-clave:/root/.android
+      - comandas-android-clave:/clave
 
   # El mismo emulador, con una ventana de scrcpy para usar la app con el mouse
   android-ventana:

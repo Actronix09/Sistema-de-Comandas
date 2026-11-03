@@ -9,6 +9,11 @@ set -euo pipefail
 
 PAQUETE=org.qtproject.example.cliente_comandas
 
+# Solo se conserva la clave de firma: si el volumen guardara todo ~/.android, también
+# quedarían los bloqueos del emulador y no volvería a arrancar tras un cierre brusco.
+mkdir -p ~/.android
+[ -f /clave/debug.keystore ] && cp /clave/debug.keystore ~/.android/
+
 "$QT_ANDROID/bin/qt-cmake" -S /src/cliente -B /tmp/build -G Ninja \
     -DCMAKE_BUILD_TYPE=Debug \
     -DQT_HOST_PATH="$QT_HOST" \
@@ -17,6 +22,7 @@ PAQUETE=org.qtproject.example.cliente_comandas
 cmake --build /tmp/build --target apk
 APK=$(find /tmp/build -name '*.apk' | head -n 1)
 cp "$APK" /salida/cliente_comandas.apk
+[ -f /clave/debug.keystore ] || cp ~/.android/debug.keystore /clave/
 
 # Con swiftshader_indirect los botones de Material no se dibujan
 emulator -avd comandas -no-window -no-audio -no-boot-anim -no-snapshot \
