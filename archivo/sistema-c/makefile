@@ -1,7 +1,8 @@
 # Makefile para Sistema de Comandas
 
 CC = gcc
-CFLAGS = -Wall -Wextra -g
+COMUN = ../../comun
+CFLAGS = -Wall -Wextra -g -I$(COMUN)
 LIBS_NCURSES = -lncurses
 LIBS_CRYPTO = -lssl -lcrypto
 LIBS_PTHREAD = -lpthread
@@ -53,11 +54,11 @@ Servidor.o: Servidor.c
 Cliente.o: Cliente.c
 	$(CC) $(CFLAGS) -c Cliente.c
 
-usuario.o: usuario.c usuario.h
+usuario.o: usuario.c $(COMUN)/usuario.h
 	$(CC) $(CFLAGS) -c usuario.c
 
-validaciones.o: validaciones.c validaciones.h usuario.h
-	$(CC) $(CFLAGS) -c validaciones.c
+validaciones.o: $(COMUN)/validaciones.c $(COMUN)/validaciones.h $(COMUN)/usuario.h
+	$(CC) $(CFLAGS) -c $(COMUN)/validaciones.c
 
 productos.o: productos.c productos.h
 	$(CC) $(CFLAGS) -c productos.c

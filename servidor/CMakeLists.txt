@@ -29,9 +29,9 @@ qt_add_executable(
     main.cpp
     servidor.cpp
     servidor.h
-    ../validaciones.c
+    ../comun/validaciones.c
 )
-target_include_directories(servidor_comandas PRIVATE ..)
+target_include_directories(servidor_comandas PRIVATE ../comun)
 
 target_link_libraries(
     servidor_comandas PRIVATE

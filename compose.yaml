@@ -85,9 +85,7 @@ services:
       - /dev/kvm
     volumes:
       - ./cliente:/src/cliente:ro
-      - ./validaciones.c:/src/validaciones.c:ro
-      - ./validaciones.h:/src/validaciones.h:ro
-      - ./usuario.h:/src/usuario.h:ro
+      - ./comun:/src/comun:ro
       - ./android/salida:/salida
       - comandas-gradle:/root/.gradle
       # Con la misma clave de firma, el APK nuevo actualiza al que ya está en el teléfono

@@ -1,8 +1,8 @@
-# Se construye desde la raíz del repo porque usa validaciones.c
+# Se construye desde la raíz del repo porque usa comun/
 FROM docker.io/library/debian:trixie-slim AS compilacion
 RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake g++ ninja-build qt6-base-dev qt6-declarative-dev qt6-declarative-dev-tools
-COPY usuario.h validaciones.c validaciones.h /src/
+COPY comun /src/comun
 COPY cliente /src/cliente
 RUN cmake -S /src/cliente -B /src/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
     && cmake --build /src/build

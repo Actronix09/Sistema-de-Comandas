@@ -20,8 +20,8 @@ find_package(
 qt_standard_project_setup(REQUIRES 6.8)
 
 # validaciones.c es el mismo código del sistema en C, sin copiarlo
-qt_add_executable(cliente_comandas main.cpp ../validaciones.c)
-target_include_directories(cliente_comandas PRIVATE . ..)
+qt_add_executable(cliente_comandas main.cpp ../comun/validaciones.c)
+target_include_directories(cliente_comandas PRIVATE . ../comun)
 
 # Hacen el trabajo que hacía el qmldir del prototipo: estos tres archivos
 # existen una sola vez y todas las pantallas los comparten.
