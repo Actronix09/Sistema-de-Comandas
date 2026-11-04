@@ -3,6 +3,7 @@
 #   cp .env.example .env               y llenar la contraseña
 #   podman compose up -d --build       base y servidor
 #   podman compose --profile cliente up --build cliente
+#   podman compose --profile android-apk up --build android-apk
 #   podman compose --profile android up --build android
 #   podman compose --profile android-ventana up --build android-ventana
 #
@@ -74,15 +75,15 @@ services:
         source: ${XDG_RUNTIME_DIR:?se necesita una sesión gráfica}/${WAYLAND_DISPLAY:?se necesita una sesión de Wayland}
         target: /run/comandas/wayland-0
 
-  # Compila para Android y prueba en un emulador. Necesita KVM.
-  android:
-    profiles: [android]
+  # Solo compila el APK para Android. No necesita KVM.
+  android-apk:
+    profiles: [android-apk]
     build:
       context: .
       dockerfile: android/Containerfile
     image: localhost/comandas-android
-    devices:
-      - /dev/kvm
+    environment:
+      SOLO_APK: "1"
     volumes:
       - ./cliente:/src/cliente:ro
       - ./comun:/src/comun:ro
@@ -90,6 +91,16 @@ services:
       - comandas-gradle:/root/.gradle
       # Con la misma clave de firma, el APK nuevo actualiza al que ya está en el teléfono
       - comandas-android-clave:/clave
+
+  # Además de compilar, prueba el APK en un emulador. Necesita KVM.
+  android:
+    extends:
+      service: android-apk
+    profiles: [android]
+    devices:
+      - /dev/kvm
+    environment:
+      SOLO_APK: "0"
 
   # El mismo emulador, con una ventana de scrcpy para usar la app con el mouse
   android-ventana:

@@ -5,6 +5,8 @@
 #
 # Con VENTANA=1 abre una ventana con scrcpy para usar la app con el mouse; termina
 # al cerrar la ventana.
+#
+# Con SOLO_APK=1 termina al tener el APK, sin arrancar el emulador.
 set -euo pipefail
 
 PAQUETE=org.qtproject.example.cliente_comandas
@@ -23,6 +25,11 @@ cmake --build /tmp/build --target apk
 APK=$(find /tmp/build -name '*.apk' | head -n 1)
 cp "$APK" /salida/cliente_comandas.apk
 [ -f /clave/debug.keystore ] || cp ~/.android/debug.keystore /clave/
+
+if [ "${SOLO_APK:-0}" = 1 ]; then
+    echo "APK listo en /salida/cliente_comandas.apk"
+    exit 0
+fi
 
 # Por omisión dibuja por software, porque funciona en cualquier equipo. Con
 # swiftshader_indirect los botones de Material no se dibujan.
