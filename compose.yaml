@@ -1,0 +1,128 @@
+# Sistema de Comandas en contenedores
+#
+#   cp .env.example .env               y llenar la contraseña
+#   podman compose up -d --build       base y servidor
+#   podman compose --profile cliente up --build cliente
+#   podman compose --profile android-apk up --build android-apk
+#   podman compose --profile android up --build android
+#   podman compose --profile android-ventana up --build android-ventana
+#
+# Ojo: "podman compose down -v" borra el volumen con todos los datos.
+name: comandas
+
+services:
+  db:
+    image: docker.io/library/postgres:16.4-alpine
+    environment:
+      POSTGRES_DB: comandas
+      POSTGRES_USER: ${COMANDAS_BD_USUARIO:?falta en .env}
+      POSTGRES_PASSWORD: ${COMANDAS_BD_CONTRASENA:?falta en .env}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      TZ: America/Mexico_City
+    ports:
+      - "5433:5432"
+    volumes:
+      - comandas-pgdata:/var/lib/postgresql/data
+      # El esquema se monta desde el repo de la base para no tener dos copias.
+      # Solo se carga cuando el volumen está vacío.
+      - type: bind
+        source: ${COMANDAS_SQL:?falta en .env}/esquema.sql
+        target: /docker-entrypoint-initdb.d/01-esquema.sql
+        read_only: true
+      - type: bind
+        source: ${COMANDAS_SQL}/datos-ejemplo.sql
+        target: /docker-entrypoint-initdb.d/02-datos-ejemplo.sql
+        read_only: true
+      - type: bind
+        source: ./db/init/03-contrasenas-desarrollo.sql
+        target: /docker-entrypoint-initdb.d/03-contrasenas-desarrollo.sql
+        read_only: true
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -q -U \"$$POSTGRES_USER\" -d comandas"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  servidor:
+    build:
+      context: .
+      dockerfile: servidor/Containerfile
+    image: localhost/comandas-servidor
+    environment:
+      COMANDAS_BD_HOST: db
+      COMANDAS_BD_PUERTO: "5432"
+      COMANDAS_BD_NOMBRE: comandas
+      COMANDAS_BD_USUARIO: ${COMANDAS_BD_USUARIO}
+      COMANDAS_BD_CONTRASENA: ${COMANDAS_BD_CONTRASENA}
+      COMANDAS_PUERTO: "9000"
+    ports:
+      - "9000:9000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Es una ventana en el escritorio del equipo: usa el socket de Wayland del anfitrión
+  cliente:
+    profiles: [cliente]
+    build:
+      context: .
+      dockerfile: cliente/Containerfile
+    image: localhost/comandas-cliente
+    volumes:
+      - type: bind
+        source: ${XDG_RUNTIME_DIR:?se necesita una sesión gráfica}/${WAYLAND_DISPLAY:?se necesita una sesión de Wayland}
+        target: /run/comandas/wayland-0
+
+  # Solo compila el APK para Android. No necesita KVM.
+  android-apk:
+    profiles: [android-apk]
+    build:
+      context: .
+      dockerfile: android/Containerfile
+    image: localhost/comandas-android
+    environment:
+      SOLO_APK: "1"
+    volumes:
+      - ./cliente:/src/cliente:ro
+      - ./comun:/src/comun:ro
+      - ./android/salida:/salida
+      - comandas-gradle:/root/.gradle
+      # Con la misma clave de firma, el APK nuevo actualiza al que ya está en el teléfono
+      - comandas-android-clave:/clave
+
+  # Además de compilar, prueba el APK en un emulador. Necesita KVM.
+  android:
+    extends:
+      service: android-apk
+    profiles: [android]
+    devices:
+      - /dev/kvm
+    environment:
+      SOLO_APK: "0"
+
+  # El mismo emulador, con una ventana de scrcpy para usar la app con el mouse
+  android-ventana:
+    extends:
+      service: android
+    profiles: [android-ventana]
+    # X11 comparte la imagen de la ventana por memoria; sin esto se queda vacía
+    ipc: host
+    # Con la tarjeta gráfica del equipo el emulador gasta mucho menos procesador
+    devices:
+      - /dev/dri
+    environment:
+      VENTANA: "1"
+      DISPLAY: ${DISPLAY:?se necesita una sesión gráfica}
+      EMULADOR_GRAFICOS: -gpu host
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+
+volumes:
+  comandas-pgdata:
+    name: comandas-pgdata
+  comandas-gradle:
+    name: comandas-gradle
+  comandas-android-clave:
+    name: comandas-android-clave

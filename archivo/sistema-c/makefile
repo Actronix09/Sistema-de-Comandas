@@ -1,13 +1,14 @@
 # Makefile para Sistema de Comandas
 
 CC = gcc
-CFLAGS = -Wall -Wextra -g
+COMUN = ../../comun
+CFLAGS = -Wall -Wextra -g -I$(COMUN)
 LIBS_NCURSES = -lncurses
 LIBS_CRYPTO = -lssl -lcrypto
 LIBS_PTHREAD = -lpthread
 
 # Archivos objeto comunes
-OBJ_USUARIO = usuario.o
+OBJ_USUARIO = usuario.o validaciones.o
 OBJ_PRODUCTOS = productos.o
 OBJ_PEDIDOS = pedidos.o
 OBJ_INVENTARIO = inventario.o
@@ -53,8 +54,11 @@ Servidor.o: Servidor.c
 Cliente.o: Cliente.c
 	$(CC) $(CFLAGS) -c Cliente.c
 
-usuario.o: usuario.c usuario.h
+usuario.o: usuario.c $(COMUN)/usuario.h
 	$(CC) $(CFLAGS) -c usuario.c
+
+validaciones.o: $(COMUN)/validaciones.c $(COMUN)/validaciones.h $(COMUN)/usuario.h
+	$(CC) $(CFLAGS) -c $(COMUN)/validaciones.c
 
 productos.o: productos.c productos.h
 	$(CC) $(CFLAGS) -c productos.c

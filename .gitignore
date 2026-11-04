@@ -70,3 +70,13 @@ producto_ingrediente
 
 /.vscode
 /node_modules
+
+# Compilación del cliente en Qt
+cliente/build/
+servidor/build/
+
+# Lo que deja la prueba de Android
+android/salida/
+
+# Contraseñas de los contenedores
+.env

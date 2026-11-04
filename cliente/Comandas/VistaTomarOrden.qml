@@ -1,0 +1,507 @@
+pragma ComponentBehavior: Bound
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+
+// "Tomar Nueva Orden" + "Confirmar Orden". Primero se elige la mesa, después
+// la cuenta y al final los productos. La orden se arma aquí, en el cliente;
+// al confirmarla, el servidor crea una comanda por cada unidad.
+// Todo se hace con toques o clics: la interfaz no depende del teclado.
+Item {
+    id: vista
+
+    property var productos: []        // lo que regresó Api.listarProductos
+    property var visibles: []         // después de filtrar por categoría y búsqueda
+    property string categoria: "todas"
+    property bool cargando: false
+    property var mesa: null           // elegida en ElegirCuenta
+    property var cuenta: null         // { secuencial, nombre, folio, cuenta, ... }
+    // Los enlaces que leen el carrito dependen de esta versión, que sube en
+    // cada cambio; así las tarjetas y el total se recalculan.
+    property int versionCarrito: 0
+    // En pantallas angostas (teléfono) la orden es un botón abajo que se despliega
+    // sobre el catálogo; en las anchas es un panel fijo a un lado.
+    readonly property bool compacta: width < 700
+    readonly property int altoBotonOrden: 56
+    property bool ordenDesplegada: false
+
+    ListModel { id: carrito }
+
+    // Botón Atrás de Android: el mismo camino de vuelta que los botones de la pantalla
+    function atras() {
+        if (compacta && ordenDesplegada) {
+            ordenDesplegada = false
+            return true
+        }
+        if (cuenta !== null) {
+            cuenta = null
+            return true
+        }
+        return elegir.atras()
+    }
+
+    function cargar() {
+        cargando = true
+        Api.listarProductos(function (r) {
+            // La respuesta llega después; si la pantalla ya se cerró (cerraron
+            // sesión mientras tanto), su id vale null y no hay nada que actualizar.
+            if (!vista)
+                return
+            vista.cargando = false
+            if (r.codigo !== "OK") {
+                Avisos.error(r.mensaje)
+                return
+            }
+            vista.productos = r.datos
+            vista.filtrar()
+            vista.ajustarCarritoAlStock()
+        })
+    }
+
+    function filtrar() {
+        const texto = busqueda.text.trim().toLowerCase()
+        visibles = productos.filter(p =>
+            (categoria === "todas" || p.categoria === categoria)
+            && (texto === "" || p.nombre.toLowerCase().indexOf(texto) >= 0
+                || p.ingredientes.join(" ").toLowerCase().indexOf(texto) >= 0))
+    }
+
+    function indiceEnCarrito(idProducto) {
+        for (let i = 0; i < carrito.count; i++)
+            if (carrito.get(i).id_producto === idProducto)
+                return i
+        return -1
+    }
+
+    function cantidadDe(idProducto) {
+        const i = indiceEnCarrito(idProducto)
+        return i < 0 ? 0 : carrito.get(i).cantidad
+    }
+
+    function agregar(producto) {
+        if (!producto.disponible) {
+            Avisos.error(producto.nombre + ": sin stock")
+            return
+        }
+        const i = indiceEnCarrito(producto.id_producto)
+        if (i < 0) {
+            carrito.append({ id_producto: producto.id_producto, nombre: producto.nombre, precio: producto.precio,
+                             cantidad: 1, maximo: producto.maximo, detalles: "" })
+        } else if (carrito.get(i).cantidad < producto.maximo) {
+            carrito.setProperty(i, "cantidad", carrito.get(i).cantidad + 1)
+        } else {
+            Avisos.info("Solo alcanza para " + producto.maximo + " de " + producto.nombre)
+            return
+        }
+        versionCarrito++
+    }
+
+    function agregarPorId(idProducto) {
+        const p = productos.find(x => x.id_producto === idProducto)
+        if (p)
+            agregar(p)
+    }
+
+    function quitar(idProducto) {
+        const i = indiceEnCarrito(idProducto)
+        if (i < 0)
+            return
+        const cantidad = carrito.get(i).cantidad
+        if (cantidad <= 1)
+            carrito.remove(i)
+        else
+            carrito.setProperty(i, "cantidad", cantidad - 1)
+        versionCarrito++
+    }
+
+    function vaciar() {
+        carrito.clear()
+        versionCarrito++
+    }
+
+    function total() {
+        let suma = 0
+        for (let i = 0; i < carrito.count; i++)
+            suma += carrito.get(i).precio * carrito.get(i).cantidad
+        return suma
+    }
+
+    function unidades() {
+        let suma = 0
+        for (let i = 0; i < carrito.count; i++)
+            suma += carrito.get(i).cantidad
+        return suma
+    }
+
+    // Si el stock bajó (otro mesero ordenó, o el admin lo ajustó), recorta la orden.
+    function ajustarCarritoAlStock() {
+        for (let i = carrito.count - 1; i >= 0; i--) {
+            const p = productos.find(x => x.id_producto === carrito.get(i).id_producto)
+            if (!p || p.maximo === 0) {
+                carrito.remove(i)
+                continue
+            }
+            carrito.setProperty(i, "maximo", p.maximo)
+            if (carrito.get(i).cantidad > p.maximo)
+                carrito.setProperty(i, "cantidad", p.maximo)
+        }
+        versionCarrito++
+    }
+
+    function confirmar() {
+        if (carrito.count === 0) {
+            Avisos.info("Agrega al menos un producto")
+            return
+        }
+        const lineas = []
+        for (let i = 0; i < carrito.count; i++) {
+            const l = carrito.get(i)
+            lineas.push({ id_producto: l.id_producto, nombre: l.nombre, precio: l.precio,
+                          cantidad: l.cantidad, detalles: l.detalles })
+        }
+        dialogo.lineas = lineas
+        dialogo.destino = "Mesa " + mesa.numero_mesa + " · " + cuenta.cuenta
+        dialogo.open()
+    }
+
+    function enviar() {
+        const lineas = dialogo.lineas.map(l => ({ id_producto: l.id_producto, cantidad: l.cantidad, detalles: l.detalles }))
+        dialogo.enviando = true
+        Api.crearComandas(mesa.numero_mesa, cuenta.secuencial, lineas, function (r) {
+            if (!vista)
+                return
+            dialogo.enviando = false
+            if (r.codigo === "OK") {
+                dialogo.close()
+                vista.vaciar()
+                vista.ordenDesplegada = false
+                Avisos.exito(r.mensaje)
+                // Lista para la siguiente mesa
+                vista.cuenta = null
+                vista.mesa = null
+                elegir.reiniciar()
+            } else {
+                dialogo.error = r.mensaje   // a diferencia de la terminal, se muestra el motivo real
+            }
+        })
+    }
+
+    Component.onCompleted: cargar()
+
+    Connections {
+        target: Api
+        function onInventarioCambio() { vista.cargar() }
+    }
+
+    ElegirCuenta {
+        id: elegir
+        anchors.fill: parent
+        visible: vista.cuenta === null
+        onElegida: (mesa, cuenta) => {
+            vista.mesa = mesa
+            vista.cuenta = cuenta
+        }
+    }
+
+    // ======================= Catálogo =======================
+    ColumnLayout {
+        id: catalogo
+        anchors.fill: parent
+        anchors.margins: vista.compacta ? Tema.espacio : Tema.margen
+        // Deja libre el lugar del botón (teléfono) o del panel (pantalla ancha)
+        anchors.rightMargin: vista.compacta ? Tema.espacio : panelOrden.width + 2 * Tema.margen
+        anchors.bottomMargin: vista.compacta ? vista.altoBotonOrden + 2 * Tema.espacio : Tema.margen
+        visible: vista.cuenta !== null
+        spacing: 10
+
+        // A dónde va la orden; "Cambiar" regresa a las cuentas sin perder lo elegido
+        Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: filaDestino.implicitHeight + 12
+            radius: Tema.radio
+            color: Qt.rgba(Tema.acento.r, Tema.acento.g, Tema.acento.b, 0.10)
+            border.color: Qt.rgba(Tema.acento.r, Tema.acento.g, Tema.acento.b, 0.35)
+
+            RowLayout {
+                id: filaDestino
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.leftMargin: 12
+                anchors.rightMargin: 4
+                Label {
+                    Layout.fillWidth: true
+                    text: vista.cuenta ? "Mesa " + vista.mesa.numero_mesa + " · " + vista.cuenta.cuenta : ""
+                    color: Tema.texto
+                    font.pixelSize: Tema.letraMediana
+                    font.bold: true
+                    elide: Text.ElideRight
+                }
+                Button {
+                    text: "Cambiar"
+                    flat: true
+                    onClicked: vista.cuenta = null
+                }
+            }
+        }
+
+        GridLayout {
+            Layout.fillWidth: true
+            // El buscador baja a otra línea si no caben las categorías a su lado
+            readonly property bool angosta: catalogo.width < 640
+            columns: angosta ? 1 : 2
+            columnSpacing: 6
+            rowSpacing: 4
+
+            // Flow acomoda las categorías en otra línea si no caben
+            Flow {
+                Layout.fillWidth: true
+                spacing: 6
+                Repeater {
+                    model: [
+                        { clave: "todas", texto: "Todos" },
+                        { clave: "alimentos", texto: "Alimentos" },
+                        { clave: "bebidas", texto: "Bebidas" },
+                        { clave: "dulceria", texto: "Dulcería" }
+                    ]
+                    delegate: Button {
+                        id: botonCategoria
+                        required property var modelData
+                        text: botonCategoria.modelData.texto
+                        highlighted: vista.categoria === botonCategoria.modelData.clave
+                        flat: !highlighted
+                        onClicked: {
+                            vista.categoria = botonCategoria.modelData.clave
+                            vista.filtrar()
+                        }
+                    }
+                }
+            }
+            TextField {
+                id: busqueda
+                Layout.fillWidth: parent.angosta
+                Layout.preferredWidth: parent.angosta ? -1 : 280
+                placeholderText: "Buscar producto o ingrediente…"
+                onTextChanged: vista.filtrar()
+            }
+        }
+
+        GridView {
+            id: cuadricula
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            readonly property int columnas: Math.max(1, Math.floor(width / 230))
+            cellWidth: Math.floor(width / columnas)
+            cellHeight: 244
+            model: vista.visibles
+            ScrollBar.vertical: ScrollBar {}
+
+            delegate: Item {
+                id: celda
+                required property var modelData
+                required property int index
+                width: cuadricula.cellWidth
+                height: cuadricula.cellHeight
+
+                TarjetaProducto {
+                    anchors.fill: parent
+                    anchors.margins: 6
+                    producto: celda.modelData
+                    cantidad: {
+                        vista.versionCarrito   // dependencia: recalcular al cambiar el carrito
+                        return vista.cantidadDe(celda.modelData.id_producto)
+                    }
+                    onAgregar: vista.agregar(celda.modelData)
+                    onQuitar: vista.quitar(celda.modelData.id_producto)
+                }
+            }
+
+            Label {
+                anchors.centerIn: parent
+                visible: !vista.cargando && vista.visibles.length === 0
+                text: "No hay productos que coincidan"
+                color: Tema.textoSuave
+            }
+            BusyIndicator {
+                anchors.centerIn: parent
+                running: vista.cargando && vista.productos.length === 0
+            }
+        }
+    }
+
+    // Al tocar fuera de la orden desplegada se pliega
+    Rectangle {
+        anchors.fill: parent
+        visible: vista.cuenta !== null && vista.compacta && vista.ordenDesplegada
+        color: Qt.rgba(0, 0, 0, 0.4)
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: vista.ordenDesplegada = false
+        }
+    }
+
+    // ======================= Orden actual =======================
+    Rectangle {
+        id: panelOrden
+        readonly property bool plegada: vista.compacta && !vista.ordenDesplegada
+
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: vista.compacta ? Tema.espacio : Tema.margen
+        visible: vista.cuenta !== null
+        width: vista.compacta ? vista.width - 2 * Tema.espacio : Math.min(370, Math.round(vista.width * 0.38))
+        height: {
+            if (!vista.compacta)
+                return vista.height - 2 * Tema.margen
+            return vista.ordenDesplegada ? Math.round(vista.height * 0.8) : vista.altoBotonOrden
+        }
+        radius: Tema.radio
+        color: plegada ? "transparent" : Tema.superficie
+        border.color: Tema.borde
+        border.width: plegada ? 0 : 1
+        clip: !plegada
+
+        Behavior on height {
+            enabled: vista.compacta
+            NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 0
+
+            Button {
+                Layout.fillWidth: true
+                Layout.preferredHeight: vista.altoBotonOrden
+                visible: vista.compacta
+                topInset: 0
+                bottomInset: 0
+                highlighted: panelOrden.plegada
+                flat: !panelOrden.plegada
+                text: {
+                    vista.versionCarrito
+                    return "Orden actual (" + vista.unidades() + ")  " + (vista.ordenDesplegada ? "▼" : "▲")
+                }
+                onClicked: vista.ordenDesplegada = !vista.ordenDesplegada
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.margins: Tema.margen
+                visible: !panelOrden.plegada
+                spacing: Tema.espacio
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    visible: !vista.compacta
+                    Label {
+                        text: "Orden actual"
+                        color: Tema.texto
+                        font.pixelSize: 20
+                        font.bold: true
+                    }
+                    Item { Layout.fillWidth: true }
+                    Label {
+                        text: {
+                            vista.versionCarrito
+                            const n = vista.unidades()
+                            return n + (n === 1 ? " producto" : " productos")
+                        }
+                        color: Tema.textoSuave
+                    }
+                }
+
+                ListView {
+                    id: listaOrden
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    clip: true
+                    spacing: 8
+                    model: carrito
+                    ScrollBar.vertical: ScrollBar {}
+
+                    delegate: LineaOrden {
+                        id: lineaDelegado
+                        width: listaOrden.width
+                        onIncrementar: vista.agregarPorId(lineaDelegado.id_producto)
+                        onDecrementar: vista.quitar(lineaDelegado.id_producto)
+                        onNotaEditada: (texto) => carrito.setProperty(lineaDelegado.index, "detalles", texto)
+                    }
+
+                    Label {
+                        anchors.centerIn: parent
+                        width: parent.width - 32
+                        visible: carrito.count === 0
+                        text: "Toca un producto para agregarlo a la orden."
+                        color: Tema.textoSuave
+                        wrapMode: Text.WordWrap
+                        horizontalAlignment: Text.AlignHCenter
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    implicitHeight: 1
+                    color: Tema.borde
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Label {
+                        text: "Total"
+                        color: Tema.texto
+                        font.pixelSize: 18
+                        font.bold: true
+                    }
+                    Item { Layout.fillWidth: true }
+                    Label {
+                        text: {
+                            vista.versionCarrito
+                            return Tema.dinero(vista.total())
+                        }
+                        color: Tema.acento
+                        font.pixelSize: 24
+                        font.bold: true
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Button {
+                        text: "Vaciar"
+                        flat: true
+                        enabled: carrito.count > 0
+                        onClicked: confirmarVaciar.open()
+                    }
+                    Button {
+                        Layout.fillWidth: true
+                        text: "Confirmar orden"
+                        highlighted: true
+                        enabled: carrito.count > 0
+                        onClicked: vista.confirmar()
+                    }
+                }
+            }
+        }
+    }
+
+    DialogoConfirmarOrden {
+        id: dialogo
+        onConfirmar: vista.enviar()
+    }
+
+    DialogoConfirmar {
+        id: confirmarVaciar
+        titulo: "¿Vaciar la orden?"
+        mensaje: "Se quitarán todos los productos de la orden actual."
+        textoAceptar: "Vaciar"
+        onConfirmado: {
+            vista.vaciar()
+            vista.ordenDesplegada = false
+        }
+    }
+}
