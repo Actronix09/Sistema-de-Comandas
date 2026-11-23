@@ -224,7 +224,6 @@ Todavía usan el contenedor `practica1-postgres`, en Docker. Pasarlas a Podman e
 
 ## Problemas conocidos
 
-- **La contraseña de desarrollo de la base no se conoce.** `db/init/03-contrasenas-desarrollo.sql` dice que es `Demo_123`, pero ese valor no coincide con el hash del archivo y tampoco cumple las reglas de contraseña. Hace falta generar un hash nuevo y actualizar ese archivo.
 - **Las contraseñas viajan sin cifrar.** El servidor usa `ws://`; pasar a `wss://` es el punto 6.11 de `PENDIENTES.md`.
 - **`dcampos` solo existe en los datos simulados.** Falta en `datos-ejemplo.sql`, igual que el nivel `cajero` de `mrivas` (punto 3.12).
 
