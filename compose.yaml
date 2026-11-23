@@ -13,6 +13,27 @@ name: comandas
 services:
   db:
     image: docker.io/library/postgres:16.4-alpine
+    # Si un archivo montado no existe, Podman monta una carpeta vacía en su lugar
+    # y la base queda creada a medias (Podman no respeta bind.create_host_path).
+    # Por eso, antes de crear la base, se revisa que todo esté y, si falta algo,
+    # se detiene con un mensaje claro y deja el volumen vacío.
+    entrypoint:
+      - sh
+      - -c
+      - |
+        if [ ! -s "$$PGDATA/PG_VERSION" ]; then
+          for archivo in /docker-entrypoint-initdb.d/*; do
+            if [ ! -f "$$archivo" ]; then
+              echo "No se encontró $$(basename "$$archivo"). Revisa COMANDAS_SQL en .env (usa una ruta absoluta)." >&2
+              exit 1
+            fi
+          done
+          if ! ls /comandas/migraciones/*.sql > /dev/null 2>&1; then
+            echo "No hay migraciones en /comandas/migraciones. Revisa COMANDAS_SQL en .env (usa una ruta absoluta)." >&2
+            exit 1
+          fi
+        fi
+        exec docker-entrypoint.sh postgres
     environment:
       POSTGRES_DB: comandas
       POSTGRES_USER: ${COMANDAS_BD_USUARIO:?falta en .env}
