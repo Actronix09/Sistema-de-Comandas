@@ -19,23 +19,40 @@ services:
       POSTGRES_PASSWORD: ${COMANDAS_BD_CONTRASENA:?falta en .env}
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
       TZ: America/Mexico_City
+      # Las usa crear_usuarios.sql para los usuarios con permisos limitados
+      COMANDAS_APP_CLAVE: ${COMANDAS_APP_CLAVE:?falta en .env}
+      COMANDAS_CONSULTA_CLAVE: ${COMANDAS_CONSULTA_CLAVE:?falta en .env}
+      COMANDAS_ADMIN_CLAVE: ${COMANDAS_ADMIN_CLAVE:?falta en .env}
     ports:
       - "5433:5432"
     volumes:
       - comandas-pgdata:/var/lib/postgresql/data
       # El esquema se monta desde el repo de la base para no tener dos copias.
-      # Solo se carga cuando el volumen está vacío.
+      # Solo se carga cuando el volumen está vacío, en este orden:
+      # esquema → migraciones → datos de ejemplo → contraseñas → usuarios de la base
       - type: bind
         source: ${COMANDAS_SQL:?falta en .env}/esquema.sql
         target: /docker-entrypoint-initdb.d/01-esquema.sql
         read_only: true
       - type: bind
+        source: ./db/init/02-migraciones.sh
+        target: /docker-entrypoint-initdb.d/02-migraciones.sh
+        read_only: true
+      - type: bind
+        source: ${COMANDAS_SQL}/migraciones
+        target: /comandas/migraciones
+        read_only: true
+      - type: bind
         source: ${COMANDAS_SQL}/datos-ejemplo.sql
-        target: /docker-entrypoint-initdb.d/02-datos-ejemplo.sql
+        target: /docker-entrypoint-initdb.d/03-datos-ejemplo.sql
         read_only: true
       - type: bind
         source: ./db/init/03-contrasenas-desarrollo.sql
-        target: /docker-entrypoint-initdb.d/03-contrasenas-desarrollo.sql
+        target: /docker-entrypoint-initdb.d/04-contrasenas-desarrollo.sql
+        read_only: true
+      - type: bind
+        source: ${COMANDAS_SQL}/carga/crear_usuarios.sql
+        target: /docker-entrypoint-initdb.d/05-usuarios-bd.sql
         read_only: true
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -q -U \"$$POSTGRES_USER\" -d comandas"]
@@ -44,18 +61,21 @@ services:
       retries: 20
     restart: unless-stopped
 
+  # El servidor en C (servidor-c/). Entra a la base solo con los permisos de la
+  # aplicación: el usuario app_comandas tiene el rol comandas_app de 099-permisos.sql.
   servidor:
     build:
       context: .
-      dockerfile: servidor/Containerfile
-    image: localhost/comandas-servidor
+      dockerfile: servidor-c/Containerfile
+    image: localhost/comandas-servidor-c
     environment:
       COMANDAS_BD_HOST: db
       COMANDAS_BD_PUERTO: "5432"
       COMANDAS_BD_NOMBRE: comandas
-      COMANDAS_BD_USUARIO: ${COMANDAS_BD_USUARIO}
-      COMANDAS_BD_CONTRASENA: ${COMANDAS_BD_CONTRASENA}
+      COMANDAS_BD_USUARIO: app_comandas
+      COMANDAS_BD_CONTRASENA: ${COMANDAS_APP_CLAVE}
       COMANDAS_PUERTO: "9000"
+      COMANDAS_ORIGENES: ${COMANDAS_ORIGENES:-https://actronix09.github.io}
     ports:
       - "9000:9000"
     depends_on:
