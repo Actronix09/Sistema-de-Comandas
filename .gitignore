@@ -81,3 +81,6 @@ android/salida/
 
 # Contraseñas de los contenedores
 .env
+
+# Compilados de Python
+__pycache__/

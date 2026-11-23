@@ -5,6 +5,7 @@
 
 #include <cjson/cJSON.h>
 
+#include "operaciones.h"
 #include "protocolo.h"
 #include "registro.h"
 #include "respuesta.h"
@@ -64,12 +65,22 @@ static int buscar_operacion(const char *nombre, TipoOperacion *operacion)
 // revisa quién llama: sin sesión solo se puede hacer login.
 static cJSON *procesar_peticion(Cliente *cliente, TipoOperacion operacion, const cJSON *datos)
 {
-    (void)datos; // Lo usarán las operaciones de las siguientes partes
-
     if (operacion != OP_LOGIN && !cliente->sesion.activa)
         return respuesta_error("NO_AUTENTICADO", "Primero inicia sesión");
 
     switch (operacion) {
+    case OP_LOGIN:
+        return op_login(cliente, datos);
+
+    case OP_LOGOUT:
+        return op_logout(cliente);
+
+    case OP_LISTAR_PRODUCTOS:
+        return op_listar_productos();
+
+    case OP_CREAR_PEDIDO:
+        return op_crear_pedido(cliente, datos);
+
     default:
         return respuesta_error("NO_IMPLEMENTADA", "Esta operación todavía no está en el servidor");
     }

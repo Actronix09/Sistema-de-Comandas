@@ -1,6 +1,10 @@
-"""Prueba la parte 1 del servidor en C con un cliente WebSocket mínimo (solo stdlib).
+"""Prueba el servidor en C con un cliente WebSocket mínimo (solo stdlib).
 
-Uso: python3 -I probar.py <puerto>
+Uso: python3 -I probar.py <puerto> [--bd]
+
+Sin --bd prueba solo la conexión y el protocolo, sin base de datos. Con --bd
+prueba también login, productos y crear comanda; necesita la base con los datos
+de ejemplo y las contraseñas de desarrollo (Demo_123.).
 """
 import base64
 import json
@@ -10,7 +14,8 @@ import struct
 import sys
 
 HOST = "127.0.0.1"
-PUERTO = int(sys.argv[1]) if len(sys.argv) > 1 else 9100
+PUERTO = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else 9100
+CON_BD = "--bd" in sys.argv
 
 TEXT, CONT, CLOSE = 0x1, 0x0, 0x8
 
@@ -133,9 +138,9 @@ enviar(s, TEXT, json.dumps({"id": 4, "op": "OP_LISTAR_PRODUCTOS"}).encode())
 r = recibir(s)
 caso(4, "Operación real sin sesión", codigo(r) == "NO_AUTENTICADO" and r.get("id") == 4, r)
 
-enviar(s, TEXT, json.dumps({"id": "abc", "op": "OP_LOGIN", "datos": {"usuario": "x", "password": "y"}}).encode())
+enviar(s, TEXT, json.dumps({"id": "abc", "op": "OP_LOGIN", "datos": {"usuario": "x"}}).encode())
 r = recibir(s)
-caso(5, "Login (todavía no implementado)", codigo(r) == "NO_IMPLEMENTADA" and r.get("id") == "abc", r)
+caso(5, "Login sin contraseña", codigo(r) == "VALIDACION_FALLIDA" and r.get("id") == "abc", r)
 
 mensaje = json.dumps({"id": 6, "op": "OP_LISTAR_PEDIDOS"}).encode()
 tercio = len(mensaje) // 3
@@ -156,6 +161,86 @@ s, error = conectar("https://pagina-ajena.example")
 caso(8, "Navegador desde una página NO permitida (403)", s is None and " 403 " in (error or "") + " ",
      error if s is None else "¡se abrió el WebSocket!")
 if s:
+    cerrar(s)
+
+
+
+# ---------------------------------------------------------------------------
+#  Con base de datos
+# ---------------------------------------------------------------------------
+
+def pedir(s, op, datos=None, id_=0):
+    enviar(s, TEXT, json.dumps({"id": id_, "op": op, "datos": datos}).encode())
+    return recibir(s)
+
+
+def mensaje(r):
+    return (r.get("error") or {}).get("mensaje", "")
+
+
+if CON_BD:
+    s, error = conectar()
+
+    r = pedir(s, "OP_LOGIN", {"usuario": "lmendez", "contrasena": "Equivocada_1"})
+    caso(9, "Login con contraseña incorrecta", codigo(r) == "CREDENCIALES_INVALIDAS", r)
+
+    r2 = pedir(s, "OP_LOGIN", {"usuario": "noexiste", "contrasena": "Demo_123."})
+    caso(10, "Login de usuario que no existe (mismo mensaje)",
+         codigo(r2) == "CREDENCIALES_INVALIDAS" and mensaje(r2) == mensaje(r), r2)
+
+    r = pedir(s, "OP_LOGIN", {"usuario": " LMendez ", "contrasena": "Demo_123."})
+    perfil = r.get("datos") or {}
+    caso(11, "Login de mesero (sin importar espacios ni mayúsculas)",
+         r.get("ok") is True and perfil.get("rol") == "mesero" and "contrasena_hash" not in perfil, r)
+
+    r = pedir(s, "OP_LISTAR_PRODUCTOS")
+    productos = r.get("datos") or []
+    caso(12, "Listar productos", r.get("ok") is True and len(productos) > 0
+         and all(isinstance(p.get("precio"), str) for p in productos),
+         f"{len(productos)} productos; el primero: {productos[0] if productos else None}")
+
+    # Un producto que alcance para 2, y uno con receta que no alcance para 50
+    alcanza = next(p for p in productos if p["disponible"] and p["maximo"] >= 2)
+    escaso = next((p for p in productos if p["ingredientes"] and p["maximo"] < 50), None)
+
+    r = pedir(s, "OP_CREAR_PEDIDO", {"numero_mesa": 1, "secuencial": 1, "lineas": [
+        {"id_producto": alcanza["id_producto"], "cantidad": 2, "detalles": "  sin hielo  "}]})
+    d = r.get("datos") or {}
+    caso(13, f"Crear 2 comandas de «{alcanza['nombre']}» en la cuenta 1 de la mesa 1",
+         r.get("ok") is True and d.get("creadas") == 2 and len(d.get("id_comandas", [])) == 2, r)
+
+    r = pedir(s, "OP_CREAR_PEDIDO", {"numero_mesa": 1, "secuencial": 3, "lineas": [
+        {"id_producto": alcanza["id_producto"], "cantidad": 1}]})
+    caso(14, "Cuenta que es de otra mesa", codigo(r) == "VALIDACION_FALLIDA", r)
+
+    r = pedir(s, "OP_CREAR_PEDIDO", {"numero_mesa": 99, "secuencial": 1, "lineas": [
+        {"id_producto": alcanza["id_producto"], "cantidad": 1}]})
+    caso(15, "Mesa que no existe", codigo(r) == "VALIDACION_FALLIDA" and "99" in mensaje(r), r)
+
+    # Todo o nada: la primera línea es válida, la segunda no
+    r = pedir(s, "OP_CREAR_PEDIDO", {"numero_mesa": 1, "secuencial": 1, "lineas": [
+        {"id_producto": alcanza["id_producto"], "cantidad": 1}, {"id_producto": 99999, "cantidad": 1}]})
+    caso(16, "Producto que no existe (no se guarda ninguna línea)",
+         codigo(r) == "VALIDACION_FALLIDA" and "99999" in mensaje(r), r)
+
+    r = pedir(s, "OP_CREAR_PEDIDO", {"numero_mesa": 1, "secuencial": 1, "lineas": [
+        {"id_producto": alcanza["id_producto"], "cantidad": 0}]})
+    caso(17, "Cantidad 0", codigo(r) == "VALIDACION_FALLIDA", r)
+
+    if escaso:
+        r = pedir(s, "OP_CREAR_PEDIDO", {"numero_mesa": 1, "secuencial": 1, "lineas": [
+            {"id_producto": escaso["id_producto"], "cantidad": escaso["maximo"] + 1}]})
+        caso(18, f"Más de lo que alcanza de «{escaso['nombre']}» ({escaso['maximo'] + 1})",
+             codigo(r) == "SIN_STOCK", r)
+
+    r = pedir(s, "OP_LOGOUT")
+    r2 = pedir(s, "OP_LISTAR_PRODUCTOS")
+    caso(19, "Después de logout ya no hay sesión", r.get("ok") is True and codigo(r2) == "NO_AUTENTICADO", r2)
+
+    r = pedir(s, "OP_LOGIN", {"usuario": "rgamez", "contrasena": "Demo_123."})
+    r2 = pedir(s, "OP_CREAR_PEDIDO", {"numero_mesa": 1, "secuencial": 1, "lineas": [
+        {"id_producto": alcanza["id_producto"], "cantidad": 1}]})
+    caso(20, "Cocina no puede crear comandas", r.get("ok") is True and codigo(r2) == "NO_AUTORIZADO", r2)
     cerrar(s)
 
 print(f"\n{sum(resultados)} de {len(resultados)} casos pasan")

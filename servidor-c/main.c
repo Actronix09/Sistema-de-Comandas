@@ -7,6 +7,7 @@
 // Variables de entorno:
 //   COMANDAS_PUERTO     puerto donde escucha (9000)
 //   COMANDAS_ORIGENES   páginas web permitidas, separadas por comas
+//   COMANDAS_BD_*       conexión a PostgreSQL (ver bd.h)
 
 #include <signal.h>
 #include <stdlib.h>
@@ -15,7 +16,9 @@
 
 #include <civetweb.h>
 
+#include "bd.h"
 #include "conexion.h"
+#include "operaciones.h"
 #include "registro.h"
 
 static volatile sig_atomic_t seguir = 1;
@@ -54,6 +57,12 @@ int main(void)
     sigaction(SIGINT, &accion, NULL);
     sigaction(SIGTERM, &accion, NULL);
 
+    if (operaciones_iniciar() != 0) {
+        registrar("No se pudo iniciar libsodium");
+        return 1;
+    }
+    bd_iniciar();
+
     mg_init_library(0);
     if (!mg_check_feature(MG_FEATURES_WEBSOCKET)) {
         registrar("Esta civetweb se compiló sin WebSocket");
@@ -91,6 +100,7 @@ int main(void)
     registrar("Cerrando servidor...");
     mg_stop(contexto);
     mg_exit_library();
+    bd_cerrar();
     conexion_liberar_origenes(&config);
     return 0;
 }
