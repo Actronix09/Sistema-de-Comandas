@@ -84,3 +84,6 @@ android/salida/
 
 # Compilados de Python
 __pycache__/
+
+# Enlace a carpeta de la base de datos
+Base-Datos
