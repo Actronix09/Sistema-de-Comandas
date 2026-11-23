@@ -74,6 +74,7 @@ producto_ingrediente
 # Compilación del cliente en Qt
 cliente/build/
 servidor/build/
+servidor-c/servidor_comandas
 
 # Lo que deja la prueba de Android
 android/salida/

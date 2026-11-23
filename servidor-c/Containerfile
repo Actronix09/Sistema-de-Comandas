@@ -1,0 +1,17 @@
+# Se construye desde la raíz del repo porque usa comun/
+FROM docker.io/library/debian:trixie-slim AS compilacion
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libc6-dev make pkg-config libcivetweb-dev libcjson-dev
+COPY comun /src/comun
+COPY servidor-c /src/servidor-c
+RUN make -C /src/servidor-c
+
+FROM docker.io/library/debian:trixie-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libcivetweb1 libcjson1 \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=compilacion /src/servidor-c/servidor_comandas /usr/local/bin/servidor_comandas
+ENV LC_ALL=C.UTF-8
+USER nobody
+EXPOSE 9000
+CMD ["servidor_comandas"]
