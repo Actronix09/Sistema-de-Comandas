@@ -8,7 +8,8 @@ import QtQuick.Layouts
 // para cobrar y el cierre. En pantallas angostas se ve una cosa a la vez.
 // Las reglas (no cobrar de más, propina ≤ monto, cerrar sin adeudo ni comandas
 // abiertas) las revisa la base; aquí solo se muestran sus mensajes.
-// Solo el nivel administrador ve los botones para cancelar comandas y cuentas.
+// El cajero y el administrador cancelan comandas sueltas; la cuenta completa
+// solo la cancela el administrador.
 Item {
     id: caja
 
@@ -24,7 +25,8 @@ Item {
 
     readonly property bool esAdmin: Api.esAdministrador
     readonly property bool abierta: elegida !== null && elegida.estado === "abierta"
-    readonly property bool compacta: width < 760
+    // Las dos columnas necesitan ancho: con menos, se ve una cosa a la vez
+    readonly property bool compacta: width < 1000
     // El panel de detalle puede ser angosto aunque la ventana no lo sea
     readonly property bool lineaCompacta: desplazableDetalle.width < 520
     readonly property var visibles: cuentas.filter(c => !soloAbiertas || c.estado === "abierta")
@@ -388,7 +390,12 @@ Item {
                                 Layout.row: 0
                                 Layout.column: 1
                                 Layout.fillWidth: true
+                                // Cómo se cobró (migración 003 de la base)
                                 text: linea.modelData.producto
+                                      + (linea.modelData.tipo_cobro === "paquete" ? "  · incluido en paquete" : "")
+                                      + (linea.modelData.tipo_cobro === "anfitrion"
+                                         ? (linea.modelData.de_otra_cuenta ? "  · cargo de " + linea.modelData.de_otra_cuenta
+                                                                           : "  · lo paga el anfitrión") : "")
                                 color: linea.modelData.estado === "cancelada" ? Tema.textoSuave : Tema.texto
                                 font.strikeout: linea.modelData.estado === "cancelada"
                                 wrapMode: Text.WordWrap
@@ -404,14 +411,17 @@ Item {
                                 Layout.preferredWidth: 84
                                 horizontalAlignment: Text.AlignRight
                                 text: linea.modelData.estado === "cancelada" ? "—"
+                                      : !linea.modelData.cuenta_aqui ? "(anfitrión)"
+                                      : linea.modelData.tipo_cobro === "paquete" ? "Incluido"
                                       : Tema.dinero(linea.modelData.precio * linea.modelData.cantidad)
-                                color: Tema.texto
+                                color: linea.modelData.cuenta_aqui && linea.modelData.tipo_cobro !== "paquete"
+                                       ? Tema.texto : Tema.textoSuave
                             }
                             Button {
                                 Layout.row: caja.lineaCompacta ? 1 : 0
                                 Layout.column: caja.lineaCompacta ? 2 : 4
                                 Layout.alignment: Qt.AlignRight
-                                visible: caja.esAdmin && caja.abierta && linea.modelData.estado !== "cancelada"
+                                visible: caja.abierta && linea.modelData.estado !== "cancelada"
                                 text: "Cancelar"
                                 flat: true
                                 onClicked: dialogoCancelar.abrir(linea.modelData)

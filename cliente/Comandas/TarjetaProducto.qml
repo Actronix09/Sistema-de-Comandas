@@ -48,6 +48,13 @@ Rectangle {
                 texto: "Variante de " + tarjeta.producto.variante_de
                 tono: Tema.textoSuave
             }
+            // Viene en el paquete del evento: no se cobra mientras queden porciones
+            Etiqueta {
+                visible: tarjeta.producto.incluidos_restantes !== null && tarjeta.producto.incluidos_restantes !== undefined
+                texto: tarjeta.producto.incluidos_restantes > 0 ? "Incluido · quedan " + tarjeta.producto.incluidos_restantes
+                                                                 : "Paquete agotado"
+                tono: tarjeta.producto.incluidos_restantes > 0 ? Tema.exito : Tema.advertencia
+            }
             Item { Layout.fillWidth: true }
             Etiqueta {
                 visible: tarjeta.cantidad > 0
