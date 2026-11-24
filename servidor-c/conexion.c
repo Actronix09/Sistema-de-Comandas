@@ -7,6 +7,7 @@
 #include <civetweb.h>
 #include <cjson/cJSON.h>
 
+#include "avisos.h"
 #include "cliente.h"
 #include "despacho.h"
 #include "registro.h"
@@ -103,6 +104,7 @@ static void al_estar_listo(struct mg_connection *conexion, void *datos_registro)
     cliente->conexion = conexion;
     snprintf(cliente->ip, sizeof cliente->ip, "%s", mg_get_request_info(conexion)->remote_addr);
     mg_set_user_connection_data(conexion, cliente);
+    avisos_agregar(cliente);
     registrar("Cliente conectado: %s", cliente->ip);
 }
 
@@ -167,6 +169,8 @@ static void al_cerrar(const struct mg_connection *conexion, void *datos_registro
         return;
 
     registrar("Cliente desconectado: %s", cliente->ip);
+    // Después de esto ningún aviso la toca, y ya se puede liberar
+    avisos_quitar(cliente);
     free(cliente->mensaje);
     free(cliente);
 }

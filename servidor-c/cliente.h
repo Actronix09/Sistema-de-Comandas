@@ -17,7 +17,7 @@ typedef struct {
 
 // Todo lo que el servidor guarda de una conexión. Lo crea al_estar_listo() y
 // lo libera al_cerrar(), en conexion.c.
-typedef struct {
+typedef struct Cliente {
     struct mg_connection *conexion;
     char ip[48];
     Sesion sesion;
@@ -26,6 +26,9 @@ typedef struct {
     char *mensaje;
     size_t largo;
     int recibiendo_texto;
+
+    // Lista de conexiones abiertas, para los avisos (ver avisos.h)
+    struct Cliente *siguiente;
 } Cliente;
 
 #endif

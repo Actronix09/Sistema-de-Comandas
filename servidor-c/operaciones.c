@@ -9,7 +9,9 @@
 
 #include <sodium.h>
 
+#include "avisos.h"
 #include "bd.h"
+#include "datos.h"
 #include "registro.h"
 #include "respuesta.h"
 
@@ -20,8 +22,8 @@
 #define MAX_UNIDADES   100
 #define MAX_DETALLES   255 // comanda.detalles es VARCHAR(255)
 
-// Verificar una contraseña con Argon2id usa 64 MB de memoria. Se verifica una a
-// la vez para que muchos intentos de login juntos no se acaben la memoria.
+// Verificar o guardar una contraseña con Argon2id usa 64 MB de memoria. Se hace
+// una a la vez para que muchos intentos de login juntos no se acaben la memoria.
 static pthread_mutex_t candado_verificar = PTHREAD_MUTEX_INITIALIZER;
 
 int operaciones_iniciar(void)
@@ -29,53 +31,13 @@ int operaciones_iniciar(void)
     return sodium_init() < 0 ? -1 : 0;
 }
 
-// ---------------------------------------------------------------------------
-//  Lectura de "datos"
-// ---------------------------------------------------------------------------
-
-static const char *texto(const cJSON *objeto, const char *campo)
+int operaciones_hash(const char *contrasena, char hash[crypto_pwhash_STRBYTES])
 {
-    const cJSON *valor = cJSON_GetObjectItemCaseSensitive(objeto, campo);
-    return cJSON_IsString(valor) ? valor->valuestring : NULL;
-}
-
-// Lee un entero dentro de [minimo, maximo]. Regresa 1 si está bien.
-static int entero(const cJSON *objeto, const char *campo, int minimo, int maximo, int *salida)
-{
-    const cJSON *valor = cJSON_GetObjectItemCaseSensitive(objeto, campo);
-    if (!cJSON_IsNumber(valor))
-        return 0;
-    double numero = valor->valuedouble;
-    // Con NaN las dos comparaciones son falsas y también se rechaza
-    if (!(numero >= minimo && numero <= maximo) || numero != (int)numero)
-        return 0;
-    *salida = (int)numero;
-    return 1;
-}
-
-// Cuenta caracteres, no bytes: "ñ" ocupa dos bytes en UTF-8 y es uno solo
-static size_t caracteres_utf8(const char *cadena)
-{
-    size_t total = 0;
-    for (; *cadena != '\0'; cadena++) {
-        if (((unsigned char)*cadena & 0xC0) != 0x80)
-            total++;
-    }
-    return total;
-}
-
-// El mismo formato que ck_usuario_formato (migración 002). Si no lo cumple, ese
-// usuario no puede existir y no hace falta preguntarle a la base.
-static int usuario_con_formato(const char *usuario)
-{
-    size_t largo = strlen(usuario);
-    if (largo < 3 || largo > 40 || !isalpha((unsigned char)usuario[0]))
-        return 0;
-    for (size_t i = 1; i < largo; i++) {
-        if (!isalnum((unsigned char)usuario[i]))
-            return 0;
-    }
-    return 1;
+    pthread_mutex_lock(&candado_verificar);
+    int resultado = crypto_pwhash_str(hash, contrasena, strlen(contrasena), crypto_pwhash_OPSLIMIT_INTERACTIVE,
+                                      crypto_pwhash_MEMLIMIT_INTERACTIVE);
+    pthread_mutex_unlock(&candado_verificar);
+    return resultado;
 }
 
 // Ejecuta una consulta con parámetros. Si falla, deja la respuesta de error en
@@ -114,8 +76,8 @@ static cJSON *credenciales_invalidas(const Cliente *cliente, const char *usuario
 
 cJSON *op_login(Cliente *cliente, const cJSON *datos)
 {
-    const char *recibido = texto(datos, "usuario");
-    const char *contrasena = texto(datos, "contrasena");
+    const char *recibido = dato_texto(datos, "usuario");
+    const char *contrasena = dato_texto(datos, "contrasena");
     if (recibido == NULL || contrasena == NULL || contrasena[0] == '\0')
         return respuesta_error("VALIDACION_FALLIDA", "Escribe tu usuario y tu contraseña");
 
@@ -158,12 +120,14 @@ cJSON *op_login(Cliente *cliente, const cJSON *datos)
     }
 
     Sesion *sesion = &cliente->sesion;
+    avisos_bloquear();
     memset(sesion, 0, sizeof *sesion);
     sesion->activa = 1;
     sesion->id_usuario = atoi(PQgetvalue(fila, 0, L_ID));
     snprintf(sesion->usuario, sizeof sesion->usuario, "%s", PQgetvalue(fila, 0, L_USUARIO));
     snprintf(sesion->rol, sizeof sesion->rol, "%s", PQgetvalue(fila, 0, L_ROL));
     snprintf(sesion->nivel_acceso, sizeof sesion->nivel_acceso, "%s", PQgetvalue(fila, 0, L_NIVEL));
+    avisos_desbloquear();
     registrar("Login de %s: %s (%s)", cliente->ip, sesion->usuario, sesion->rol);
 
     // Los mismos campos que usuarioActual en Api.qml; el hash nunca sale
@@ -188,7 +152,9 @@ cJSON *op_login(Cliente *cliente, const cJSON *datos)
 cJSON *op_logout(Cliente *cliente)
 {
     registrar("Logout de %s: %s", cliente->ip, cliente->sesion.usuario);
+    avisos_bloquear();
     memset(&cliente->sesion, 0, sizeof cliente->sesion);
+    avisos_desbloquear();
     return respuesta_ok(NULL);
 }
 
@@ -254,11 +220,11 @@ static cJSON *validar_lineas(const cJSON *lineas, char **json_lineas)
     char mensaje[160];
     cJSON_ArrayForEach(linea, lineas) {
         int id_producto, cantidad;
-        if (!cJSON_IsObject(linea) || !entero(linea, "id_producto", 1, INT_MAX, &id_producto)) {
+        if (!cJSON_IsObject(linea) || !dato_entero(linea, "id_producto", 1, INT_MAX, &id_producto)) {
             cJSON_Delete(limpias);
             return respuesta_error("VALIDACION_FALLIDA", "Una línea de la orden no trae un producto válido");
         }
-        if (!entero(linea, "cantidad", 1, MAX_CANTIDAD, &cantidad)) {
+        if (!dato_entero(linea, "cantidad", 1, MAX_CANTIDAD, &cantidad)) {
             cJSON_Delete(limpias);
             snprintf(mensaje, sizeof mensaje, "Cantidad inválida para el producto %d (de 1 a %d)", id_producto,
                      MAX_CANTIDAD);
@@ -346,9 +312,9 @@ cJSON *op_crear_pedido(Cliente *cliente, const cJSON *datos)
 
     int numero_mesa, secuencial;
     char mensaje[200];
-    if (!entero(datos, "numero_mesa", 1, SHRT_MAX, &numero_mesa))
+    if (!dato_entero(datos, "numero_mesa", 1, SHRT_MAX, &numero_mesa))
         return respuesta_error("VALIDACION_FALLIDA", "Falta el número de mesa o no es válido");
-    if (!entero(datos, "secuencial", 1, SHRT_MAX, &secuencial)) {
+    if (!dato_entero(datos, "secuencial", 1, SHRT_MAX, &secuencial)) {
         snprintf(mensaje, sizeof mensaje, "Elige una cuenta de la mesa %d", numero_mesa);
         return respuesta_error("VALIDACION_FALLIDA", mensaje);
     }
@@ -446,6 +412,8 @@ cJSON *op_crear_pedido(Cliente *cliente, const cJSON *datos)
     respuesta = respuesta_ok(datos_respuesta);
     registrar("%s creó %d comanda(s) en la cuenta %s", cliente->sesion.usuario, creadas,
               PQgetvalue(cuenta, 0, C_FOLIO));
+    avisar_todos("comandas");
+    avisar_todos("cuentas");
 
 fin:
     PQclear(resultado);
