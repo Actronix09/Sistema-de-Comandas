@@ -30,4 +30,9 @@ cJSON *op_registrar_pago(Cliente *cliente, const cJSON *datos);
 cJSON *op_cerrar_cuenta(Cliente *cliente, const cJSON *datos);
 cJSON *op_cancelar_cuenta(Cliente *cliente, const cJSON *datos);
 
+// op_comandas.c
+cJSON *op_listar_comandas(const cJSON *datos);
+cJSON *op_cambiar_estado(Cliente *cliente, const cJSON *datos);
+cJSON *op_cancelar_comandas(Cliente *cliente, const cJSON *datos);
+
 #endif

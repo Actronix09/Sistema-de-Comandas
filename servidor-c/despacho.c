@@ -112,6 +112,13 @@ static cJSON *procesar_peticion(Cliente *cliente, TipoOperacion operacion, const
     case OP_CANCELAR_CUENTA:
         return op_cancelar_cuenta(cliente, datos);
 
+    case OP_LISTAR_PEDIDOS:
+        return op_listar_comandas(datos);
+    case OP_CAMBIAR_ESTADO_PEDIDO:
+        return op_cambiar_estado(cliente, datos);
+    case OP_ELIMINAR_PEDIDO:
+        return op_cancelar_comandas(cliente, datos);
+
     default:
         return respuesta_error("NO_IMPLEMENTADA", "Esta operación todavía no está en el servidor");
     }
