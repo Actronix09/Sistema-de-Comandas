@@ -1,0 +1,89 @@
+<!doctype html>
+<!--
+  Página del cliente en el navegador. Reemplaza la que genera Qt para
+  WebAssembly (Containerfile.web la copia como index.html).
+
+  ?servidor=ws://127.0.0.1:9000 cambia el servidor, para probar contra uno
+  local; sin eso, la app usa el de la demo (ver _servidorInicial en Api.qml).
+-->
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=0">
+  <title>Sistema de Comandas</title>
+  <meta name="description" content="Demo del Sistema de Comandas: meseros, cocina, bar y caja de un salón de eventos.">
+  <style>
+    :root {
+      --acento: #D9531E;
+      --acento-oscuro: #7f3011;
+      --texto: #ffffff;
+      --suave: rgba(255, 255, 255, 0.8);
+    }
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #f3f4f6; }
+    #pantalla { width: 100%; height: 100%; }
+    #carga {
+      position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px; padding: 16px; box-sizing: border-box; text-align: center;
+      background: linear-gradient(160deg, var(--acento), var(--acento-oscuro));
+      color: var(--texto); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    #carga .logo {
+      width: 64px; height: 64px; border-radius: 18px; background: rgba(255, 255, 255, 0.18);
+      display: grid; place-items: center; font-size: 34px; font-weight: 700;
+    }
+    #carga h1 { margin: 0; font-size: clamp(26px, 6vw, 36px); }
+    #carga p { margin: 0; color: var(--suave); max-width: 32em; line-height: 1.5; }
+    .barra { width: min(280px, 80vw); height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.25); overflow: hidden; }
+    .barra::after {
+      content: ""; display: block; width: 40%; height: 100%; background: #fff; border-radius: 2px;
+      animation: avance 1.2s ease-in-out infinite;
+    }
+    @keyframes avance { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+    @media (prefers-reduced-motion: reduce) { .barra::after { animation: none; width: 100%; } }
+    #carga.error .barra { display: none; }
+  </style>
+</head>
+<body>
+  <div id="carga">
+    <div class="logo">C</div>
+    <h1>Sistema de Comandas</h1>
+    <p id="estado">Cargando la aplicación… La primera vez tarda unos segundos.</p>
+    <div class="barra"></div>
+    <noscript><p>Hace falta activar JavaScript para usar la aplicación.</p></noscript>
+  </div>
+  <div id="pantalla"></div>
+
+  <script>
+    async function iniciar() {
+      const carga = document.getElementById('carga');
+      const pantalla = document.getElementById('pantalla');
+      const estado = document.getElementById('estado');
+      const mostrarError = (texto) => {
+        estado.textContent = texto;
+        carga.classList.add('error');
+        carga.style.display = 'flex';
+      };
+
+      // ?servidor=ws://127.0.0.1:9000 → main recibe --servidor ws://127.0.0.1:9000
+      const servidor = new URLSearchParams(location.search).get('servidor');
+      try {
+        await qtLoad({
+          arguments: servidor ? ['--servidor', servidor] : [],
+          qt: {
+            onLoaded: () => { carga.style.display = 'none'; },
+            onExit: (salida) => mostrarError('La aplicación se cerró' + (salida.text ? ': ' + salida.text : '.')
+                                             + ' Recarga la página para volver a entrar.'),
+            entryFunction: window.cliente_comandas_entry,
+            containerElements: [pantalla],
+          },
+        });
+      } catch (e) {
+        console.error(e);
+        mostrarError('No se pudo cargar la aplicación. Prueba con un navegador actualizado (Chrome, Edge, Firefox o Safari).');
+      }
+    }
+  </script>
+  <script src="cliente_comandas.js"></script>
+  <script src="qtloader.js" onload="iniciar()"></script>
+</body>
+</html>

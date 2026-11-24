@@ -1,0 +1,32 @@
+# Cliente para navegador (Qt for WebAssembly)
+#
+# Se construye desde la raíz del repo porque usa comun/:
+#   podman build -f cliente/Containerfile.web -o cliente/web .
+# y deja en cliente/web/ la página lista para publicar (index.html, .js, .wasm).
+# index.html es cliente/pagina.html, no la página de ejemplo que genera Qt.
+#
+# Qt 6.8 pide exactamente Emscripten 3.1.56. Qt para WebAssembly no viene en
+# ninguna distribución, así que se baja con aqtinstall: la versión para
+# WebAssembly y la de escritorio, porque la compilación usa las herramientas de
+# escritorio (moc, qmlcachegen) para generar el código.
+FROM docker.io/emscripten/emsdk:3.1.56 AS compilacion
+ARG QT=6.8.3
+RUN apt-get update && apt-get install -y --no-install-recommends ninja-build python3-pip \
+    && pip3 install --no-cache-dir aqtinstall==3.2.1 \
+    && aqt install-qt -O /opt/qt linux desktop $QT linux_gcc_64 -m qtwebsockets \
+    && aqt install-qt -O /opt/qt all_os wasm $QT wasm_singlethread -m qtwebsockets \
+    && rm -rf /var/lib/apt/lists/* aqtinstall.log
+COPY comun /src/comun
+COPY cliente /src/cliente
+# El paquete de WebAssembly se arma en Windows y qt-cmake llega sin permiso de
+# ejecución, por eso se corre con sh
+RUN sh /opt/qt/$QT/wasm_singlethread/bin/qt-cmake -S /src/cliente -B /src/build -G Ninja \
+        -DCMAKE_BUILD_TYPE=MinSizeRel -DQT_HOST_PATH=/opt/qt/$QT/gcc_64 \
+    && cmake --build /src/build \
+    && mkdir /salida \
+    && cp /src/build/cliente_comandas.js /src/build/cliente_comandas.wasm \
+          /src/build/qtloader.js /salida/ \
+    && cp /src/cliente/pagina.html /salida/index.html
+
+FROM scratch
+COPY --from=compilacion /salida /
