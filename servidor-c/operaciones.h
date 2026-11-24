@@ -24,7 +24,7 @@ cJSON *op_evento_en_curso(void);
 cJSON *op_listar_mesas(Cliente *cliente);
 cJSON *op_listar_cuentas(const cJSON *datos);
 cJSON *op_crear_cuenta(Cliente *cliente, const cJSON *datos);
-cJSON *op_listar_cuentas_caja(Cliente *cliente);
+cJSON *op_listar_cuentas_caja(Cliente *cliente, const cJSON *datos);
 cJSON *op_detalle_cuenta(Cliente *cliente, const cJSON *datos);
 cJSON *op_registrar_pago(Cliente *cliente, const cJSON *datos);
 cJSON *op_cerrar_cuenta(Cliente *cliente, const cJSON *datos);
@@ -41,6 +41,20 @@ cJSON *op_guardar_ingrediente(Cliente *cliente, const cJSON *datos, int es_nuevo
 cJSON *op_ajustar_stock(Cliente *cliente, const cJSON *datos);
 cJSON *op_eliminar_ingrediente(Cliente *cliente, const cJSON *datos);
 cJSON *op_reiniciar_stock(Cliente *cliente);
+
+// op_catalogo.c
+cJSON *op_guardar_producto(Cliente *cliente, const cJSON *datos, int es_nuevo);
+cJSON *op_eliminar_producto(Cliente *cliente, const cJSON *datos);
+cJSON *op_listar_paquetes(Cliente *cliente);
+cJSON *op_guardar_paquete(Cliente *cliente, const cJSON *datos, int es_nuevo);
+cJSON *op_eliminar_paquete(Cliente *cliente, const cJSON *datos);
+
+// op_eventos.c
+cJSON *op_listar_eventos(Cliente *cliente, const cJSON *datos);
+cJSON *op_crear_evento(Cliente *cliente, const cJSON *datos);
+cJSON *op_modificar_evento(Cliente *cliente, const cJSON *datos);
+cJSON *op_cambiar_estado_evento(Cliente *cliente, const cJSON *datos);
+cJSON *op_registrar_anticipo(Cliente *cliente, const cJSON *datos);
 
 // op_usuarios.c
 cJSON *op_listar_usuarios(Cliente *cliente);

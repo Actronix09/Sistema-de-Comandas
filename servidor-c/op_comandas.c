@@ -58,7 +58,8 @@ static const char SQL_LISTAR_COMANDAS[] =
     "         'id_mesero', co.id_mesero, 'mesero', u.nombre,"
     "         'id_producto', co.id_producto, 'producto', p.nombre, 'categoria', p.categoria,"
     "         'estacion', " SQL_ESTACION("p") ", 'estado', co.estado,"
-    "         'detalles', COALESCE(co.detalles, ''), 'precio_cobrado', co.precio_cobrado)"
+    "         'detalles', COALESCE(co.detalles, ''), 'precio_cobrado', co.precio_cobrado,"
+    "         'tipo_cobro', co.tipo_cobro)"
     "       ORDER BY co.fecha_hora, co.id_comanda), '[]')::text"
     "  FROM comanda co"
     "  JOIN cuenta c ON c.numero_evento = co.numero_evento AND c.secuencial = co.secuencial"
@@ -224,7 +225,8 @@ fin:
 }
 
 // ---------------------------------------------------------------------------
-//  OP_ELIMINAR_PEDIDO: cancela comandas { ids: [...] } (no las borra)
+//  OP_ELIMINAR_PEDIDO: cancela comandas { ids: [...] } (no las borra). Lo hace
+//  el cajero o el administrador; la cuenta completa, solo el administrador.
 // ---------------------------------------------------------------------------
 
 // Como validar_cambio_estado, se cancela desde cualquier estado y una cancelada
@@ -244,8 +246,12 @@ static const char SQL_REVISAR_CANCELAR[] =
     "  THEN 'La cuenta está cerrada; sus comandas ya no se pueden cancelar'"
     "  ELSE (SELECT 'No se puede cancelar: el consumo que queda sería menor que lo ya pagado ('"
     "               || v.total_pagado || ')'"
-    "          FROM (SELECT numero_evento, secuencial, sum(precio_cobrado) AS importe"
-    "                  FROM elegidas GROUP BY numero_evento, secuencial) AS x"
+    "          FROM (SELECT el.numero_evento,"
+    "                       CASE WHEN el.tipo_cobro = 'anfitrion' THEN ev.secuencial_anfitrion"
+    "                            ELSE el.secuencial END AS secuencial,"
+    "                       sum(el.precio_cobrado) AS importe"
+    "                  FROM elegidas el JOIN evento ev ON ev.numero_evento = el.numero_evento"
+    "                 GROUP BY 1, 2) AS x"
     "          JOIN v_cuenta v ON v.numero_evento = x.numero_evento AND v.secuencial = x.secuencial"
     "         WHERE v.saldo < x.importe LIMIT 1)"
     " END";
@@ -264,7 +270,7 @@ static const char SQL_SALDO_COMANDA[] =
 
 cJSON *op_cancelar_comandas(Cliente *cliente, const cJSON *datos)
 {
-    cJSON *respuesta = exigir_administrador(cliente);
+    cJSON *respuesta = exigir_rol(cliente, "cajero_admin");
     if (respuesta != NULL)
         return respuesta;
     char *lista = malloc(TAM_IDS);

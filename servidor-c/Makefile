@@ -13,7 +13,8 @@ CFLAGS  += -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Wpedantic -I../comu
 LDLIBS  += -lcivetweb $(shell pkg-config --libs libcjson libpq libsodium) -lpthread
 
 OBJETOS = main.o conexion.o despacho.o avisos.o datos.o bd.o respuesta.o registro.o \
-          operaciones.o op_salon.o op_comandas.o op_inventario.o op_usuarios.o validaciones.o
+          operaciones.o op_salon.o op_comandas.o op_inventario.o op_usuarios.o \
+          op_catalogo.o op_eventos.o validaciones.o
 
 servidor_comandas: $(OBJETOS)
 	$(CC) $(LDFLAGS) -o $@ $(OBJETOS) $(LDLIBS)
@@ -25,7 +26,7 @@ validaciones.o: ../comun/validaciones.c ../comun/validaciones.h
 OPERACION = operaciones.h cliente.h avisos.h bd.h datos.h respuesta.h registro.h
 main.o: main.c bd.h conexion.h operaciones.h registro.h
 conexion.o: conexion.c conexion.h avisos.h cliente.h despacho.h registro.h
-despacho.o: despacho.c despacho.h cliente.h operaciones.h respuesta.h registro.h ../comun/protocolo.h
+despacho.o: despacho.c despacho.h cliente.h datos.h operaciones.h respuesta.h registro.h ../comun/protocolo.h
 avisos.o: avisos.c avisos.h cliente.h
 datos.o: datos.c datos.h cliente.h respuesta.h
 operaciones.o: operaciones.c $(OPERACION)
@@ -33,6 +34,8 @@ op_salon.o: op_salon.c $(OPERACION)
 op_comandas.o: op_comandas.c $(OPERACION)
 op_inventario.o: op_inventario.c $(OPERACION)
 op_usuarios.o: op_usuarios.c $(OPERACION) ../comun/validaciones.h
+op_catalogo.o: op_catalogo.c $(OPERACION)
+op_eventos.o: op_eventos.c $(OPERACION)
 bd.o: bd.c bd.h respuesta.h registro.h
 respuesta.o: respuesta.c respuesta.h
 registro.o: registro.c registro.h

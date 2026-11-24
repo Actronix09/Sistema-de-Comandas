@@ -46,7 +46,17 @@ typedef enum {
     OP_CERRAR_CUENTA = 35,
     OP_CANCELAR_CUENTA = 36,
     OP_AJUSTAR_STOCK = 37,
-    OP_REINICIAR_STOCK = 38
+    OP_REINICIAR_STOCK = 38,
+    // Administración de eventos y paquetes
+    OP_LISTAR_EVENTOS = 39,
+    OP_CREAR_EVENTO = 40,
+    OP_MODIFICAR_EVENTO = 41,
+    OP_CAMBIAR_ESTADO_EVENTO = 42,
+    OP_REGISTRAR_ANTICIPO = 43,
+    OP_LISTAR_PAQUETES = 44,
+    OP_CREAR_PAQUETE = 45,
+    OP_MODIFICAR_PAQUETE = 46,
+    OP_ELIMINAR_PAQUETE = 47
 } TipoOperacion;
 
 // Códigos de respuesta

@@ -183,6 +183,8 @@ fin:
 // cerrada sin pagos y sin ninguna comanda viva.
 static const char SQL_LISTAR_CUENTAS_CAJA[] =
     "SELECT COALESCE(json_agg(json_build_object(" CUENTA_JSON("v") ", 'estado', v.estado,"
+    "         'es_anfitrion', EXISTS (SELECT 1 FROM evento ev WHERE ev.numero_evento = v.numero_evento"
+    "                                                         AND ev.secuencial_anfitrion = v.secuencial),"
     "         'cancelada', v.estado = 'cerrada'"
     "            AND NOT EXISTS (SELECT 1 FROM pago pa"
     "                             WHERE pa.numero_evento = v.numero_evento AND pa.secuencial = v.secuencial)"
@@ -201,14 +203,39 @@ static const char SQL_LISTAR_CUENTAS_CAJA[] =
     "  FROM v_cuenta v"
     "  JOIN mesa m ON m.numero_evento = v.numero_evento AND m.numero_mesa = v.numero_mesa"
     "  JOIN usuario u ON u.id_usuario = m.id_mesero"
-    " WHERE v.numero_evento = " SQL_EVENTO;
+    " WHERE v.numero_evento = COALESCE($1::integer, " SQL_EVENTO ")";
 
-cJSON *op_listar_cuentas_caja(Cliente *cliente)
+// Las cuentas de otro evento (uno pasado, por ejemplo) solo las consulta el
+// administrador, desde la ficha del evento. Sin numero_evento, el en curso.
+static cJSON *leer_evento_opcional(const Cliente *cliente, const cJSON *datos, char *salida, size_t tam,
+                                   const char **parametro)
 {
-    cJSON *negado = exigir_rol(cliente, "cajero_admin");
+    *parametro = NULL;
+    const cJSON *campo = cJSON_GetObjectItemCaseSensitive(datos, "numero_evento");
+    if (campo == NULL || cJSON_IsNull(campo))
+        return NULL;
+    int numero;
+    if (!dato_entero(datos, "numero_evento", 1, 2147483647, &numero))
+        return respuesta_error("VALIDACION_FALLIDA", "El evento no es válido");
+    cJSON *negado = exigir_administrador(cliente);
     if (negado != NULL)
         return negado;
-    return bd_consultar(SQL_LISTAR_CUENTAS_CAJA, 0, NULL, NULL);
+    snprintf(salida, tam, "%d", numero);
+    *parametro = salida;
+    return NULL;
+}
+
+cJSON *op_listar_cuentas_caja(Cliente *cliente, const cJSON *datos)
+{
+    cJSON *respuesta = exigir_rol(cliente, "cajero_admin");
+    char evento[16];
+    const char *p_evento;
+    if (respuesta == NULL)
+        respuesta = leer_evento_opcional(cliente, datos, evento, sizeof evento, &p_evento);
+    if (respuesta != NULL)
+        return respuesta;
+    const char *parametros[] = { p_evento };
+    return bd_consultar(SQL_LISTAR_CUENTAS_CAJA, 1, parametros, NULL);
 }
 
 // ---------------------------------------------------------------------------
@@ -217,14 +244,24 @@ cJSON *op_listar_cuentas_caja(Cliente *cliente)
 
 static const char SQL_DETALLE_CUENTA[] =
     "SELECT json_build_object('secuencial', c.secuencial,"
+    "         'es_anfitrion', e.secuencial_anfitrion IS NOT DISTINCT FROM c.secuencial,"
+    // Sus comandas, y si es la cuenta del anfitrión, también los excedentes
+    // que se le cargaron desde otras cuentas (migración 003)
     "         'comandas', COALESCE((SELECT json_agg(json_build_object("
     "                                  'id_comanda', co.id_comanda, 'id_producto', co.id_producto,"
     "                                  'producto', p.nombre, 'detalles', COALESCE(co.detalles, ''),"
-    "                                  'estado', co.estado, 'precio', co.precio_cobrado)"
+    "                                  'estado', co.estado, 'precio', co.precio_cobrado,"
+    "                                  'tipo_cobro', co.tipo_cobro,"
+    "                                  'de_otra_cuenta', CASE WHEN co.secuencial <> c.secuencial"
+    "                                                         THEN o.nombre || ' · ' || o.folio END)"
     "                                ORDER BY co.id_comanda)"
-    "                                 FROM comanda co JOIN producto p ON p.id_producto = co.id_producto"
+    "                                 FROM comanda co"
+    "                                 JOIN producto p ON p.id_producto = co.id_producto"
+    "                                 JOIN cuenta o ON o.numero_evento = co.numero_evento AND o.secuencial = co.secuencial"
     "                                WHERE co.numero_evento = c.numero_evento"
-    "                                  AND co.secuencial = c.secuencial), '[]'),"
+    "                                  AND (co.secuencial = c.secuencial"
+    "                                       OR (co.tipo_cobro = 'anfitrion'"
+    "                                           AND e.secuencial_anfitrion = c.secuencial))), '[]'),"
     "         'pagos', COALESCE((SELECT json_agg(json_build_object("
     "                               'numero_pago', pa.numero_pago, 'monto', pa.monto,"
     "                               'forma_pago', pa.forma_pago, 'monto_propina', pa.monto_propina,"
@@ -234,19 +271,22 @@ static const char SQL_DETALLE_CUENTA[] =
     "                              FROM pago pa LEFT JOIN usuario u ON u.id_usuario = pa.id_mesero_propina"
     "                             WHERE pa.numero_evento = c.numero_evento"
     "                               AND pa.secuencial = c.secuencial), '[]'))::text"
-    "  FROM cuenta c"
-    " WHERE c.numero_evento = " SQL_EVENTO " AND c.secuencial = $1::smallint";
+    "  FROM cuenta c JOIN evento e ON e.numero_evento = c.numero_evento"
+    " WHERE c.numero_evento = COALESCE($2::integer, " SQL_EVENTO ") AND c.secuencial = $1::smallint";
 
 cJSON *op_detalle_cuenta(Cliente *cliente, const cJSON *datos)
 {
     cJSON *respuesta = exigir_rol(cliente, "cajero_admin");
-    char secuencial[8];
+    char secuencial[8], evento[16];
+    const char *p_evento = NULL;
     if (respuesta == NULL)
         respuesta = leer_secuencial(datos, secuencial, sizeof secuencial);
+    if (respuesta == NULL)
+        respuesta = leer_evento_opcional(cliente, datos, evento, sizeof evento, &p_evento);
     if (respuesta != NULL)
         return respuesta;
-    const char *parametros[] = { secuencial };
-    return bd_consultar(SQL_DETALLE_CUENTA, 1, parametros, "La cuenta ya no existe");
+    const char *parametros[] = { secuencial, p_evento };
+    return bd_consultar(SQL_DETALLE_CUENTA, 2, parametros, "La cuenta ya no existe");
 }
 
 // ---------------------------------------------------------------------------

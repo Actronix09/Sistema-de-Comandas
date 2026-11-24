@@ -5,6 +5,7 @@
 
 #include <cjson/cJSON.h>
 
+#include "datos.h"
 #include "operaciones.h"
 #include "protocolo.h"
 #include "registro.h"
@@ -56,6 +57,15 @@ static const struct {
     OP(OP_CANCELAR_CUENTA),
     OP(OP_AJUSTAR_STOCK),
     OP(OP_REINICIAR_STOCK),
+    OP(OP_LISTAR_EVENTOS),
+    OP(OP_CREAR_EVENTO),
+    OP(OP_MODIFICAR_EVENTO),
+    OP(OP_CAMBIAR_ESTADO_EVENTO),
+    OP(OP_REGISTRAR_ANTICIPO),
+    OP(OP_LISTAR_PAQUETES),
+    OP(OP_CREAR_PAQUETE),
+    OP(OP_MODIFICAR_PAQUETE),
+    OP(OP_ELIMINAR_PAQUETE),
 };
 
 #define NUM_OPERACIONES (sizeof OPERACIONES / sizeof OPERACIONES[0])
@@ -102,7 +112,7 @@ static cJSON *procesar_peticion(Cliente *cliente, TipoOperacion operacion, const
     case OP_CREAR_CUENTA:
         return op_crear_cuenta(cliente, datos);
     case OP_LISTAR_CUENTAS_CAJA:
-        return op_listar_cuentas_caja(cliente);
+        return op_listar_cuentas_caja(cliente, datos);
     case OP_DETALLE_CUENTA:
         return op_detalle_cuenta(cliente, datos);
     case OP_REGISTRAR_PAGO:
@@ -132,6 +142,32 @@ static cJSON *procesar_peticion(Cliente *cliente, TipoOperacion operacion, const
     case OP_REINICIAR_STOCK:
         return op_reiniciar_stock(cliente);
 
+    case OP_CREAR_PRODUCTO:
+        return op_guardar_producto(cliente, datos, 1);
+    case OP_MODIFICAR_PRODUCTO:
+        return op_guardar_producto(cliente, datos, 0);
+    case OP_ELIMINAR_PRODUCTO:
+        return op_eliminar_producto(cliente, datos);
+    case OP_LISTAR_PAQUETES:
+        return op_listar_paquetes(cliente);
+    case OP_CREAR_PAQUETE:
+        return op_guardar_paquete(cliente, datos, 1);
+    case OP_MODIFICAR_PAQUETE:
+        return op_guardar_paquete(cliente, datos, 0);
+    case OP_ELIMINAR_PAQUETE:
+        return op_eliminar_paquete(cliente, datos);
+
+    case OP_LISTAR_EVENTOS:
+        return op_listar_eventos(cliente, datos);
+    case OP_CREAR_EVENTO:
+        return op_crear_evento(cliente, datos);
+    case OP_MODIFICAR_EVENTO:
+        return op_modificar_evento(cliente, datos);
+    case OP_CAMBIAR_ESTADO_EVENTO:
+        return op_cambiar_estado_evento(cliente, datos);
+    case OP_REGISTRAR_ANTICIPO:
+        return op_registrar_anticipo(cliente, datos);
+
     case OP_LISTAR_USUARIOS:
         return op_listar_usuarios(cliente);
     case OP_CREAR_USUARIO:
@@ -140,6 +176,11 @@ static cJSON *procesar_peticion(Cliente *cliente, TipoOperacion operacion, const
         return op_guardar_usuario(cliente, datos, 0);
     case OP_ELIMINAR_USUARIO:
         return op_eliminar_usuario(cliente, datos);
+
+    case OP_LISTAR_LOGS: {
+        cJSON *negado = exigir_administrador(cliente);
+        return negado != NULL ? negado : respuesta_ok(registro_bitacora());
+    }
 
     default:
         return respuesta_error("NO_IMPLEMENTADA", "Esta operación todavía no está en el servidor");
@@ -163,8 +204,18 @@ char *despachar(Cliente *cliente, const char *texto, size_t largo)
     } else {
         const cJSON *datos = cJSON_GetObjectItemCaseSensitive(peticion, "datos");
         respuesta = procesar_peticion(cliente, operacion, datos);
-        registrar("%s %s: %s", cliente->ip, op->valuestring,
-                  cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(respuesta, "ok")) ? "ok" : "error");
+        // Las que salen bien solo van al log del contenedor (cada operación que
+        // cambia algo ya dejó su propia línea en la bitácora); las rechazadas
+        // también van a la bitácora, con el mensaje que vio el usuario.
+        const char *quien = cliente->sesion.activa ? cliente->sesion.usuario : "(sin sesión)";
+        const cJSON *error = cJSON_GetObjectItemCaseSensitive(respuesta, "error");
+        if (error == NULL) {
+            registrar_solo_log("%s %s %s: ok", cliente->ip, quien, op->valuestring);
+        } else if (operacion != OP_LOGIN) { // op_login ya registró el intento
+            const cJSON *texto = cJSON_GetObjectItemCaseSensitive(error, "mensaje");
+            registrar("%s: %s rechazada · %s", quien, op->valuestring,
+                      cJSON_IsString(texto) ? texto->valuestring : "error");
+        }
     }
 
     // La respuesta regresa el mismo id, para que el cliente sepa a qué petición

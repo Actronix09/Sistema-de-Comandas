@@ -42,6 +42,18 @@ cJSON *bd_respuesta_sin_conexion(void);
     "(SELECT numero_evento FROM evento WHERE estado = 'en_curso'"                      \
     " ORDER BY fecha DESC, numero_evento DESC LIMIT 1)"
 
+// Por qué no se puede borrar un producto ('' si sí se puede). Todas sus
+// claves foráneas son ON DELETE RESTRICT menos la receta, que se va con él.
+#define SQL_PRODUCTO_SIN_BAJA(p)                                                        \
+    "CASE WHEN EXISTS (SELECT 1 FROM comanda x WHERE x.id_producto = " p ".id_producto)"  \
+    "     THEN 'Ya se ha pedido en comandas; no se puede eliminar'"                      \
+    "     WHEN EXISTS (SELECT 1 FROM producto x WHERE x.id_producto_principal = " p ".id_producto)" \
+    "     THEN 'Tiene variantes; elimínalas primero'"                                    \
+    "     WHEN EXISTS (SELECT 1 FROM paquete_producto x WHERE x.id_producto = " p ".id_producto)" \
+    "       OR EXISTS (SELECT 1 FROM acuerdo x WHERE x.id_producto = " p ".id_producto)" \
+    "     THEN 'Está en un paquete; quítalo del paquete primero'"                        \
+    "     ELSE '' END"
+
 // Una fecha de PostgreSQL en milisegundos desde 1970, como Date.now() en QML
 #define SQL_MS(columna) "(extract(epoch FROM " columna ") * 1000)::bigint"
 

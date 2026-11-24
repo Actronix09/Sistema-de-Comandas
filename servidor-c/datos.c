@@ -103,6 +103,17 @@ size_t caracteres_utf8(const char *cadena)
     return total;
 }
 
+int fecha_iso(const char *texto)
+{
+    int anio, mes, dia;
+    char sobra;
+    if (strlen(texto) != 10 || sscanf(texto, "%4d-%2d-%2d%c", &anio, &mes, &dia, &sobra) != 3)
+        return 0;
+    static const int DIAS[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+    int bisiesto = (anio % 4 == 0 && anio % 100 != 0) || anio % 400 == 0;
+    return mes >= 1 && mes <= 12 && dia >= 1 && dia <= DIAS[mes - 1] + (mes == 2 && bisiesto);
+}
+
 int usuario_con_formato(const char *usuario)
 {
     size_t largo = strlen(usuario);

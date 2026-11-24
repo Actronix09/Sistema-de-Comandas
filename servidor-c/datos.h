@@ -33,6 +33,9 @@ int recortar(const char *texto, char *salida, size_t tam);
 // Cuenta caracteres, no bytes: "ñ" ocupa dos bytes en UTF-8 y es uno solo
 size_t caracteres_utf8(const char *cadena);
 
+// 1 si es una fecha "AAAA-MM-DD" que existe en el calendario
+int fecha_iso(const char *texto);
+
 // El mismo formato que ck_usuario_formato (migración 002)
 int usuario_con_formato(const char *usuario);
 

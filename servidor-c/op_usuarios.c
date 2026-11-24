@@ -5,7 +5,6 @@
 // total y la revisan los triggers diferidos ct_*_total al confirmar.
 #include "operaciones.h"
 
-#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -81,14 +80,8 @@ cJSON *op_listar_usuarios(Cliente *cliente)
 // "AAAA-MM-DD", que exista y que esté entre 1900 y hoy
 static int fecha_valida(const char *texto, const char **error)
 {
-    int anio, mes, dia;
-    char sobra;
     *error = "Escribe la fecha de nacimiento como AAAA-MM-DD";
-    if (strlen(texto) != 10 || sscanf(texto, "%4d-%2d-%2d%c", &anio, &mes, &dia, &sobra) != 3)
-        return 0;
-    static const int DIAS[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-    int bisiesto = (anio % 4 == 0 && anio % 100 != 0) || anio % 400 == 0;
-    if (mes < 1 || mes > 12 || dia < 1 || dia > DIAS[mes - 1] + (mes == 2 && bisiesto))
+    if (!fecha_iso(texto))
         return 0;
 
     char hoy[11];
@@ -122,7 +115,8 @@ static const char SQL_REVISAR_USUARIO_EDITADO[] =
     "SELECT CASE"
     "  WHEN u.id_usuario IS NULL THEN 'El usuario ya no existe'"
     "  WHEN u.rol <> $2::text THEN 'El rol no se puede cambiar; crea otro usuario'"
-    "  WHEN $4::boolean AND u.usuario <> $3::text THEN 'En la demo no se cambia el nombre de acceso'"
+    "  WHEN $4::boolean AND lower(u.usuario) <> lower($3::text)"
+    "  THEN 'En la demo no se cambia el nombre de acceso'"
     "  WHEN EXISTS (SELECT 1 FROM usuario o WHERE lower(o.usuario) = lower($3::text)"
     "                                         AND o.id_usuario <> u.id_usuario)"
     "  THEN 'El usuario «' || $3::text || '» ya existe'"
@@ -171,8 +165,6 @@ cJSON *op_guardar_usuario(Cliente *cliente, const cJSON *datos, int es_nuevo)
     if (recibido == NULL || !recortar(recibido, usuario, sizeof usuario) || !usuario_con_formato(usuario))
         return respuesta_error("VALIDACION_FALLIDA",
                                "El usuario empieza con letra y lleva de 3 a 40 letras sin acento o números");
-    for (char *c = usuario; *c != '\0'; c++)
-        *c = (char)tolower((unsigned char)*c);
 
     const char *fecha = dato_texto(datos, "fecha_nacimiento");
     const char *error_fecha = "Escribe la fecha de nacimiento como AAAA-MM-DD";

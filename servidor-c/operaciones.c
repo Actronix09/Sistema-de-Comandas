@@ -164,6 +164,7 @@ cJSON *op_logout(Cliente *cliente)
 
 // PostgreSQL arma el JSON: así el precio llega como texto ("95.00") y nunca
 // pasa por un double. La disponibilidad sale de v_producto, no del código.
+// "receta" (con cantidades) y "motivo_sin_baja" los usa Admin › Productos.
 static const char SQL_LISTAR_PRODUCTOS[] =
     "SELECT COALESCE(json_agg(fila ORDER BY fila.id_producto), '[]')::text"
     "  FROM ("
@@ -177,7 +178,24 @@ static const char SQL_LISTAR_PRODUCTOS[] =
     "           COALESCE((SELECT FLOOR(MIN(i.stock_actual / r.cantidad_por_porcion))::integer"
     "                       FROM receta r"
     "                       JOIN ingrediente i ON i.id_ingrediente = r.id_ingrediente"
-    "                      WHERE r.id_producto = p.id_producto), 99) AS maximo"
+    "                      WHERE r.id_producto = p.id_producto), 99) AS maximo,"
+    "           COALESCE((SELECT json_agg(json_build_object('id_ingrediente', i.id_ingrediente,"
+    "                                     'nombre', i.nombre, 'unidad_medida', i.unidad_medida,"
+    "                                     'cantidad', trim_scale(r.cantidad_por_porcion)) ORDER BY i.nombre)"
+    "                       FROM receta r"
+    "                       JOIN ingrediente i ON i.id_ingrediente = r.id_ingrediente"
+    "                      WHERE r.id_producto = p.id_producto), '[]') AS receta,"
+    "           " SQL_PRODUCTO_SIN_BAJA("p") " AS motivo_sin_baja,"
+    // Porciones que todavía incluye el paquete del evento en curso (null si el
+    // producto no viene incluido): el mesero ve "Incluido · quedan N"
+    "           (SELECT SUM(a.cantidad_acordada)"
+    "                   - (SELECT count(*) FROM comanda co"
+    "                       WHERE co.numero_evento = a.numero_evento AND co.id_producto = p.id_producto"
+    "                         AND co.tipo_cobro = 'paquete' AND co.estado <> 'cancelada')"
+    "              FROM acuerdo a"
+    "             WHERE a.numero_evento = " SQL_EVENTO
+    "               AND a.id_producto = p.id_producto AND a.modo_cobro <> 'aparte'"
+    "             GROUP BY a.numero_evento) AS incluidos_restantes"
     "      FROM v_producto p"
     "      LEFT JOIN producto principal ON principal.id_producto = p.id_producto_principal"
     "  ) fila";
