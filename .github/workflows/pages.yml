@@ -1,0 +1,49 @@
+# Publica la app (cliente en Qt compilado a WebAssembly) en GitHub Pages:
+#   https://actronix09.github.io/Sistema-de-Comandas/
+#
+# Compila con cliente/Containerfile.web, el mismo que se usa en local. La capa
+# que baja Qt y Emscripten (~1.5 GB) se guarda en la caché de Actions, así que
+# solo la primera vez tarda; después solo se recompila el cliente.
+name: Publicar la app web
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "cliente/**"
+      - "comun/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.publicacion.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Compilar para WebAssembly
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: cliente/Containerfile.web
+          outputs: type=local,dest=cliente/web
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: cliente/web
+      - id: publicacion
+        uses: actions/deploy-pages@v4
