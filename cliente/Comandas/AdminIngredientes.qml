@@ -41,6 +41,11 @@ Item {
         visibles = ingredientes.filter(i => texto === "" || i.nombre.toLowerCase().indexOf(texto) >= 0)
     }
 
+    // Los gramos y mililitros se ajustan de 100 en 100; las piezas de una en una
+    function paso(ingrediente) {
+        return ingrediente.unidad_medida === "pieza" ? 1 : 100
+    }
+
     function ajustar(ingrediente, delta) {
         Api.ajustarStock(ingrediente.id_ingrediente, delta, function (r) {
             if (r.codigo !== "OK")
@@ -226,24 +231,27 @@ Item {
                                     text: "−"
                                     font.pixelSize: 16
                                     enabled: fila.modelData.stock > 0
-                                    onClicked: pagina.ajustar(fila.modelData, -1)
+                                    onClicked: pagina.ajustar(fila.modelData, -pagina.paso(fila.modelData))
                                 }
                                 Label {
-                                    Layout.preferredWidth: 48
+                                    Layout.preferredWidth: 84
                                     horizontalAlignment: Text.AlignHCenter
-                                    text: fila.modelData.stock
+                                    text: fila.modelData.stock + " " + fila.modelData.unidad_medida
                                     color: Tema.texto
                                     font.bold: true
                                     font.pixelSize: 15
+                                    elide: Text.ElideRight
                                 }
                                 ToolButton {
                                     text: "+"
                                     font.pixelSize: 16
-                                    onClicked: pagina.ajustar(fila.modelData, 1)
+                                    onClicked: pagina.ajustar(fila.modelData, pagina.paso(fila.modelData))
                                 }
+                                // stock_minimo es el punto de resurtido de la base
                                 Etiqueta {
                                     Layout.leftMargin: 6
-                                    visible: !pagina.compacta && fila.modelData.stock < 10
+                                    visible: !pagina.compacta
+                                             && (fila.modelData.stock === 0 || fila.modelData.stock < fila.modelData.stock_minimo)
                                     texto: fila.modelData.stock === 0 ? "Agotado" : "Bajo"
                                     tono: fila.modelData.stock === 0 ? Tema.peligro : Tema.advertencia
                                 }

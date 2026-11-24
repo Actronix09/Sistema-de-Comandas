@@ -16,7 +16,9 @@ Dialog {
     function abrirNuevo() {
         ingrediente = null
         campoNombre.text = ""
+        comboUnidad.currentIndex = comboUnidad.indexOfValue("pieza")
         campoStock.value = 0
+        campoMinimo.value = 0
         error = ""
         open()
     }
@@ -24,7 +26,9 @@ Dialog {
     function abrirEdicion(datos) {
         ingrediente = datos
         campoNombre.text = datos.nombre
+        comboUnidad.currentIndex = comboUnidad.indexOfValue(datos.unidad_medida)
         campoStock.value = datos.stock
+        campoMinimo.value = datos.stock_minimo
         error = ""
         open()
     }
@@ -37,7 +41,8 @@ Dialog {
         }
         guardando = true
         error = ""
-        const datos = { nombre: campoNombre.text, stock: campoStock.value }
+        const datos = { nombre: campoNombre.text, unidad_medida: comboUnidad.currentValue,
+                        stock: campoStock.value, stock_minimo: campoMinimo.value }
         if (ingrediente)
             datos.id_ingrediente = ingrediente.id_ingrediente
         Api.guardarIngrediente(datos, function (r) {
@@ -84,6 +89,25 @@ Dialog {
             font.pixelSize: 11
         }
 
+        // Las cantidades van en la unidad base, como en la receta: 20000 g, no 20 kg
+        Label {
+            text: "Unidad"
+            color: Tema.texto
+            font.bold: true
+        }
+        ComboBox {
+            id: comboUnidad
+            Layout.fillWidth: true
+            model: [
+                { texto: "Piezas", valor: "pieza" },
+                { texto: "Gramos (g)", valor: "g" },
+                { texto: "Mililitros (ml)", valor: "ml" }
+            ]
+            textRole: "texto"
+            valueRole: "valor"
+            enabled: !dialogo.guardando
+        }
+
         Label {
             text: "Existencia"
             color: Tema.texto
@@ -93,7 +117,23 @@ Dialog {
             id: campoStock
             Layout.fillWidth: true
             from: 0
-            to: 99999
+            to: 9999999
+            stepSize: comboUnidad.currentValue === "pieza" ? 1 : 100
+            editable: true
+            enabled: !dialogo.guardando
+        }
+
+        Label {
+            text: "Mínimo (avisa cuando quede menos)"
+            color: Tema.texto
+            font.bold: true
+        }
+        SpinBox {
+            id: campoMinimo
+            Layout.fillWidth: true
+            from: 0
+            to: 9999999
+            stepSize: comboUnidad.currentValue === "pieza" ? 1 : 100
             editable: true
             enabled: !dialogo.guardando
         }
