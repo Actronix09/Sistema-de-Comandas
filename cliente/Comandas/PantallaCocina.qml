@@ -82,18 +82,6 @@ Item {
         onTriggered: pantalla.ahora = new Date()
     }
 
-    // Imita a los meseros mandando órdenes desde otras computadoras
-    Timer {
-        interval: 9000
-        repeat: true
-        running: interruptor.checked
-        onTriggered: {
-            const datos = Api.simularRondaEntrante()
-            if (datos)
-                Avisos.info("Nueva orden · Mesa " + datos.numero_mesa + " · " + datos.cuenta)
-        }
-    }
-
     Rectangle {
         anchors.fill: parent
         color: Tema.fondo
@@ -120,10 +108,6 @@ Item {
                 valueRole: "valor"
                 Component.onCompleted: currentIndex = indexOfValue(pantalla.estacion)
                 onActivated: pantalla.estacion = currentValue
-            }
-            Switch {
-                id: interruptor
-                text: pantalla.compacta ? "Simular" : "Simular pedidos"
             }
             Button {
                 visible: !pantalla.compacta

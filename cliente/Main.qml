@@ -131,4 +131,13 @@ ApplicationWindow {
         target: Avisos
         function onMostrar(texto, tipo) { aviso.mostrar(texto, tipo) }
     }
+
+    // La sesión vive en la conexión: si se cae, el servidor ya no la recuerda
+    Connections {
+        target: Api
+        function onSesionPerdida() {
+            pila.replace(null, cLogin)
+            Avisos.error("Se perdió la conexión con el servidor; vuelve a entrar")
+        }
+    }
 }

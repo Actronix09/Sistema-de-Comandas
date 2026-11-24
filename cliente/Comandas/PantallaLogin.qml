@@ -46,11 +46,24 @@ Item {
         entrar()
     }
 
-    Component.onCompleted: {
+    function cargarEvento() {
         Api.eventoEnCurso(function (r) {
             if (pantalla && r.codigo === "OK")
                 pantalla.evento = r.datos
         })
+    }
+
+    // Si se abrió sin conexión, el evento llega cuando conecte
+    Connections {
+        target: Api
+        function onConectadoChanged() {
+            if (Api.conectado && pantalla.evento === null)
+                pantalla.cargarEvento()
+        }
+    }
+
+    Component.onCompleted: {
+        cargarEvento()
         // En Android el foco abriría el teclado y taparía la pantalla
         if (Qt.platform.os !== "android")
             campoUsuario.forceActiveFocus()
@@ -151,9 +164,12 @@ Item {
                 Item { Layout.fillHeight: true }
 
                 Label {
-                    text: "Datos simulados en memoria"
+                    Layout.fillWidth: true
+                    text: (Api.conectado ? "Conectado a " : "Conectando con ")
+                          + Api.servidor.replace(/^wss?:\/\//, "")
                     color: Qt.rgba(1, 1, 1, 0.6)
                     font.pixelSize: Tema.letraChica
+                    elide: Text.ElideRight
                 }
             }
         }
@@ -177,6 +193,14 @@ Item {
                 Label {
                     text: "Entra con tu usuario del salón."
                     color: Tema.textoSuave
+                }
+                // En el navegador la primera conexión tarda unos segundos
+                Label {
+                    Layout.fillWidth: true
+                    visible: !Api.conectado
+                    text: "Conectando con el servidor…"
+                    color: Tema.advertencia
+                    wrapMode: Text.WordWrap
                 }
 
                 Label {

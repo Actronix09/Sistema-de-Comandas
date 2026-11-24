@@ -16,6 +16,7 @@ find_package(
     Qml
     Quick
     QuickControls2
+    WebSockets
 )
 qt_standard_project_setup(REQUIRES 6.8)
 
@@ -84,4 +85,5 @@ target_link_libraries(
     Qt6::Qml
     Qt6::Quick
     Qt6::QuickControls2
+    Qt6::WebSockets
 )
