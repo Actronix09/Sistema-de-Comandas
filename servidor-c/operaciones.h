@@ -19,4 +19,15 @@ cJSON *op_logout(Cliente *cliente);
 cJSON *op_listar_productos(void);
 cJSON *op_crear_pedido(Cliente *cliente, const cJSON *datos);
 
+// op_salon.c: evento, mesas, cuentas y caja
+cJSON *op_evento_en_curso(void);
+cJSON *op_listar_mesas(Cliente *cliente);
+cJSON *op_listar_cuentas(const cJSON *datos);
+cJSON *op_crear_cuenta(Cliente *cliente, const cJSON *datos);
+cJSON *op_listar_cuentas_caja(Cliente *cliente);
+cJSON *op_detalle_cuenta(Cliente *cliente, const cJSON *datos);
+cJSON *op_registrar_pago(Cliente *cliente, const cJSON *datos);
+cJSON *op_cerrar_cuenta(Cliente *cliente, const cJSON *datos);
+cJSON *op_cancelar_cuenta(Cliente *cliente, const cJSON *datos);
+
 #endif

@@ -34,7 +34,19 @@ typedef enum {
     OP_OBTENER_PEDIDO = 24,
     OP_VERIFICAR_DISPONIBILIDAD_PRODUCTO = 25,
     OP_LISTAR_LOGS = 26,
-    OP_VER_LOG = 27
+    OP_VER_LOG = 27,
+    // Las que pidió el cliente en Qt (Api.qml) y no existían en el sistema en C
+    OP_EVENTO_EN_CURSO = 28,
+    OP_LISTAR_MESAS = 29,
+    OP_LISTAR_CUENTAS = 30,
+    OP_CREAR_CUENTA = 31,
+    OP_LISTAR_CUENTAS_CAJA = 32,
+    OP_DETALLE_CUENTA = 33,
+    OP_REGISTRAR_PAGO = 34,
+    OP_CERRAR_CUENTA = 35,
+    OP_CANCELAR_CUENTA = 36,
+    OP_AJUSTAR_STOCK = 37,
+    OP_REINICIAR_STOCK = 38
 } TipoOperacion;
 
 // Códigos de respuesta

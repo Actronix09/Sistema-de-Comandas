@@ -45,6 +45,17 @@ static const struct {
     OP(OP_VERIFICAR_DISPONIBILIDAD_PRODUCTO),
     OP(OP_LISTAR_LOGS),
     OP(OP_VER_LOG),
+    OP(OP_EVENTO_EN_CURSO),
+    OP(OP_LISTAR_MESAS),
+    OP(OP_LISTAR_CUENTAS),
+    OP(OP_CREAR_CUENTA),
+    OP(OP_LISTAR_CUENTAS_CAJA),
+    OP(OP_DETALLE_CUENTA),
+    OP(OP_REGISTRAR_PAGO),
+    OP(OP_CERRAR_CUENTA),
+    OP(OP_CANCELAR_CUENTA),
+    OP(OP_AJUSTAR_STOCK),
+    OP(OP_REINICIAR_STOCK),
 };
 
 #define NUM_OPERACIONES (sizeof OPERACIONES / sizeof OPERACIONES[0])
@@ -62,10 +73,11 @@ static int buscar_operacion(const char *nombre, TipoOperacion *operacion)
 }
 
 // Es el switch de procesarPeticion en Servidor.c. A diferencia del original,
-// revisa quién llama: sin sesión solo se puede hacer login.
+// revisa quién llama: sin sesión solo se puede hacer login y ver el evento en
+// curso, que la pantalla de login muestra. Cada operación revisa además el rol.
 static cJSON *procesar_peticion(Cliente *cliente, TipoOperacion operacion, const cJSON *datos)
 {
-    if (operacion != OP_LOGIN && !cliente->sesion.activa)
+    if (operacion != OP_LOGIN && operacion != OP_EVENTO_EN_CURSO && !cliente->sesion.activa)
         return respuesta_error("NO_AUTENTICADO", "Primero inicia sesión");
 
     switch (operacion) {
@@ -80,6 +92,25 @@ static cJSON *procesar_peticion(Cliente *cliente, TipoOperacion operacion, const
 
     case OP_CREAR_PEDIDO:
         return op_crear_pedido(cliente, datos);
+
+    case OP_EVENTO_EN_CURSO:
+        return op_evento_en_curso();
+    case OP_LISTAR_MESAS:
+        return op_listar_mesas(cliente);
+    case OP_LISTAR_CUENTAS:
+        return op_listar_cuentas(datos);
+    case OP_CREAR_CUENTA:
+        return op_crear_cuenta(cliente, datos);
+    case OP_LISTAR_CUENTAS_CAJA:
+        return op_listar_cuentas_caja(cliente);
+    case OP_DETALLE_CUENTA:
+        return op_detalle_cuenta(cliente, datos);
+    case OP_REGISTRAR_PAGO:
+        return op_registrar_pago(cliente, datos);
+    case OP_CERRAR_CUENTA:
+        return op_cerrar_cuenta(cliente, datos);
+    case OP_CANCELAR_CUENTA:
+        return op_cancelar_cuenta(cliente, datos);
 
     default:
         return respuesta_error("NO_IMPLEMENTADA", "Esta operación todavía no está en el servidor");
