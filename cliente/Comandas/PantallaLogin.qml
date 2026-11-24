@@ -3,8 +3,9 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-// Menú principal + "Iniciar Sesion" del sistema en terminal. "Crear Usuario" y
-// "Recuperar Contrasena" siguen aquí; esas pantallas son ejercicios tuyos.
+// Menú principal + "Iniciar Sesion" del sistema en terminal. Ya no hay "Crear
+// usuario" ni "Recuperar contraseña": solo el administrador crea usuarios y
+// cambia contraseñas (decisión D4 del contrato).
 Item {
     id: pantalla
 
@@ -212,7 +213,7 @@ Item {
                 TextField {
                     id: campoUsuario
                     Layout.fillWidth: true
-                    placeholderText: "p. ej. lmendez"
+                    placeholderText: "Tu usuario"
                     enabled: !pantalla.ocupado
                     onAccepted: campoContrasena.forceActiveFocus()
                 }
@@ -259,25 +260,19 @@ Item {
 
                 RowLayout {
                     Layout.fillWidth: true
-                    Button {
-                        text: "Crear usuario"
-                        flat: true
-                        onClicked: pantalla.abrirPendiente("crear_usuario")
-                    }
-                    Button {
-                        text: "Recuperar contraseña"
-                        flat: true
-                        onClicked: pantalla.abrirPendiente("recuperar")
-                    }
                     Item { Layout.fillWidth: true }
+                    // En el navegador no hay ventana que cerrar
                     Button {
+                        visible: Qt.platform.os !== "wasm"
                         text: "Salir"
                         flat: true
                         onClicked: Qt.quit()
                     }
                 }
 
+                // Solo en la demo pública: en el salón cada quien entra con su cuenta
                 Rectangle {
+                    visible: Api.modoDemo
                     Layout.fillWidth: true
                     Layout.topMargin: 14
                     implicitHeight: accesoDemo.implicitHeight + 24
@@ -304,12 +299,12 @@ Item {
                             spacing: 8
                             Repeater {
                                 model: [
-                                    { texto: "Mesero · lmendez", usuario: "lmendez" },
-                                    { texto: "Mesero · operez", usuario: "operez" },
-                                    { texto: "Cocina · rgamez", usuario: "rgamez" },
-                                    { texto: "Bar · isoto", usuario: "isoto" },
-                                    { texto: "Cajero · mrivas", usuario: "mrivas" },
-                                    { texto: "Admin · dcampos", usuario: "dcampos" }
+                                    { texto: "Mesero 1", usuario: "meseroDemo1" },
+                                    { texto: "Mesero 2", usuario: "meseroDemo2" },
+                                    { texto: "Cocina", usuario: "cocinaDemo1" },
+                                    { texto: "Bar", usuario: "cocinaDemo2" },
+                                    { texto: "Cajero", usuario: "cajeroDemo" },
+                                    { texto: "Administrador", usuario: "adminDemo" }
                                 ]
                                 delegate: Button {
                                     id: botonDemo

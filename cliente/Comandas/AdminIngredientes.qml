@@ -236,7 +236,7 @@ Item {
                                 Label {
                                     Layout.preferredWidth: 84
                                     horizontalAlignment: Text.AlignHCenter
-                                    text: fila.modelData.stock + " " + fila.modelData.unidad_medida
+                                    text: fila.modelData.stock + " " + (fila.modelData.unidad_medida === "pieza" ? "pz" : fila.modelData.unidad_medida)
                                     color: Tema.texto
                                     font.bold: true
                                     font.pixelSize: 15

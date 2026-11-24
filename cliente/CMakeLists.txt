@@ -42,17 +42,26 @@ qt_add_qml_module(
     validaciones_qml.h
     QML_FILES
     Main.qml
+    Comandas/AdminBitacora.qml
+    Comandas/AdminEventos.qml
     Comandas/AdminIngredientes.qml
+    Comandas/AdminPaquetes.qml
+    Comandas/AdminProductos.qml
     Comandas/AdminUsuarios.qml
     Comandas/Api.qml
     Comandas/Aviso.qml
+    Comandas/Capturas.qml
     Comandas/Avisos.qml
     Comandas/ChipEstado.qml
     Comandas/DialogoCancelarComandas.qml
     Comandas/DialogoConfirmar.qml
     Comandas/DialogoConfirmarOrden.qml
+    Comandas/DialogoDetalleCuenta.qml
     Comandas/DialogoIngrediente.qml
+    Comandas/DialogoPaquete.qml
+    Comandas/DialogoProducto.qml
     Comandas/DialogoUsuario.qml
+    Comandas/EditorEvento.qml
     Comandas/ElegirCuenta.qml
     Comandas/Encabezado.qml
     Comandas/Etiqueta.qml

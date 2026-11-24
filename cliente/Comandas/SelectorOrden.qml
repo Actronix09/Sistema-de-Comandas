@@ -46,7 +46,12 @@ RowLayout {
     Layout.fillWidth: false
     spacing: 4
 
+    // En teléfono no cabe completo: sin la etiqueta y con "Mesa" en vez de
+    // "Mesa y cuenta". Si no cupiera, empujaría todo lo demás fuera de la pantalla.
+    readonly property bool angosto: parent !== null && parent.width < 440
+
     Label {
+        visible: !selector.angosto
         text: "Organizar:"
         color: Tema.textoSuave
         font.pixelSize: Tema.letraChica
@@ -61,7 +66,7 @@ RowLayout {
         delegate: Button {
             id: opcion
             required property var modelData
-            text: opcion.modelData.texto
+            text: selector.angosto && opcion.modelData.valor === "mesa" ? "Mesa" : opcion.modelData.texto
             highlighted: selector.modo === opcion.modelData.valor
             flat: !highlighted
             onClicked: selector.modo = opcion.modelData.valor

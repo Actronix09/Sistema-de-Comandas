@@ -10,6 +10,10 @@ Item {
 
     signal salir()
 
+    // Para el recorrido de capturas (Capturas.qml)
+    property alias pestana: pestanas.currentIndex
+    readonly property Item vista: vistaOrden
+
     property int sinVer: 0
 
     // Botón Atrás de Android; regresa false si ya no hay a dónde retroceder
