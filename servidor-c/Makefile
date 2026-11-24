@@ -13,7 +13,7 @@ CFLAGS  += -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Wpedantic -I../comu
 LDLIBS  += -lcivetweb $(shell pkg-config --libs libcjson libpq libsodium) -lpthread
 
 OBJETOS = main.o conexion.o despacho.o avisos.o datos.o bd.o respuesta.o registro.o \
-          operaciones.o op_salon.o op_comandas.o op_inventario.o
+          operaciones.o op_salon.o op_comandas.o op_inventario.o op_usuarios.o validaciones.o
 
 servidor_comandas: $(OBJETOS)
 	$(CC) $(LDFLAGS) -o $@ $(OBJETOS) $(LDLIBS)

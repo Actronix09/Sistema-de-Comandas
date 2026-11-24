@@ -42,4 +42,9 @@ cJSON *op_ajustar_stock(Cliente *cliente, const cJSON *datos);
 cJSON *op_eliminar_ingrediente(Cliente *cliente, const cJSON *datos);
 cJSON *op_reiniciar_stock(Cliente *cliente);
 
+// op_usuarios.c
+cJSON *op_listar_usuarios(Cliente *cliente);
+cJSON *op_guardar_usuario(Cliente *cliente, const cJSON *datos, int es_nuevo);
+cJSON *op_eliminar_usuario(Cliente *cliente, const cJSON *datos);
+
 #endif

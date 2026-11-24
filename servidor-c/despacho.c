@@ -132,6 +132,15 @@ static cJSON *procesar_peticion(Cliente *cliente, TipoOperacion operacion, const
     case OP_REINICIAR_STOCK:
         return op_reiniciar_stock(cliente);
 
+    case OP_LISTAR_USUARIOS:
+        return op_listar_usuarios(cliente);
+    case OP_CREAR_USUARIO:
+        return op_guardar_usuario(cliente, datos, 1);
+    case OP_MODIFICAR_USUARIO:
+        return op_guardar_usuario(cliente, datos, 0);
+    case OP_ELIMINAR_USUARIO:
+        return op_eliminar_usuario(cliente, datos);
+
     default:
         return respuesta_error("NO_IMPLEMENTADA", "Esta operación todavía no está en el servidor");
     }

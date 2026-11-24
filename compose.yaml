@@ -97,6 +97,8 @@ services:
       COMANDAS_BD_CONTRASENA: ${COMANDAS_APP_CLAVE}
       COMANDAS_PUERTO: "9000"
       COMANDAS_ORIGENES: ${COMANDAS_ORIGENES:-https://actronix09.github.io}
+      # 1 en el servidor de la demo pública: no se borran usuarios ni se cambian contraseñas
+      COMANDAS_DEMO: ${COMANDAS_DEMO:-0}
     ports:
       - "9000:9000"
     depends_on:
