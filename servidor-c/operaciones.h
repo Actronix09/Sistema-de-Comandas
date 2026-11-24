@@ -35,4 +35,11 @@ cJSON *op_listar_comandas(const cJSON *datos);
 cJSON *op_cambiar_estado(Cliente *cliente, const cJSON *datos);
 cJSON *op_cancelar_comandas(Cliente *cliente, const cJSON *datos);
 
+// op_inventario.c
+cJSON *op_listar_ingredientes(void);
+cJSON *op_guardar_ingrediente(Cliente *cliente, const cJSON *datos, int es_nuevo);
+cJSON *op_ajustar_stock(Cliente *cliente, const cJSON *datos);
+cJSON *op_eliminar_ingrediente(Cliente *cliente, const cJSON *datos);
+cJSON *op_reiniciar_stock(Cliente *cliente);
+
 #endif

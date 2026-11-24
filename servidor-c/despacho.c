@@ -119,6 +119,19 @@ static cJSON *procesar_peticion(Cliente *cliente, TipoOperacion operacion, const
     case OP_ELIMINAR_PEDIDO:
         return op_cancelar_comandas(cliente, datos);
 
+    case OP_LISTAR_INGREDIENTES:
+        return op_listar_ingredientes();
+    case OP_CREAR_INGREDIENTE:
+        return op_guardar_ingrediente(cliente, datos, 1);
+    case OP_MODIFICAR_INGREDIENTE:
+        return op_guardar_ingrediente(cliente, datos, 0);
+    case OP_AJUSTAR_STOCK:
+        return op_ajustar_stock(cliente, datos);
+    case OP_ELIMINAR_INGREDIENTE:
+        return op_eliminar_ingrediente(cliente, datos);
+    case OP_REINICIAR_STOCK:
+        return op_reiniciar_stock(cliente);
+
     default:
         return respuesta_error("NO_IMPLEMENTADA", "Esta operación todavía no está en el servidor");
     }
