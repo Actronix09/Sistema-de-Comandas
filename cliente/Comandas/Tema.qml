@@ -111,4 +111,44 @@ QtObject {
     function hora(milisegundos) {
         return Qt.formatTime(new Date(milisegundos), "HH:mm")
     }
+
+    // Fechas "AAAA-MM-DD" de la base. Se arma la fecha local a mano: con
+    // new Date("2027-01-15") JavaScript la toma en UTC y en México cae un día antes.
+    function fechaDe(iso) {
+        const p = String(iso).split("-").map(Number)
+        return new Date(p[0], p[1] - 1, p[2])
+    }
+
+    function iso(fecha) {
+        const dos = n => (n < 10 ? "0" : "") + n
+        return fecha.getFullYear() + "-" + dos(fecha.getMonth() + 1) + "-" + dos(fecha.getDate())
+    }
+
+    function fechaCorta(iso) {      // "vie 15 ene 2027"
+        return fechaDe(iso).toLocaleDateString(Qt.locale("es_MX"), "ddd d MMM yyyy")
+    }
+
+    function fechaLarga(iso) {      // "viernes 15 de enero de 2027"
+        return fechaDe(iso).toLocaleDateString(Qt.locale("es_MX"), "dddd d 'de' MMMM 'de' yyyy")
+    }
+
+    // Estados de un evento (ck_evento_estado)
+    function nombreEstadoEvento(estado) {
+        switch (estado) {
+        case "programado": return "Programado"
+        case "en_curso": return "En curso"
+        case "finalizado": return "Finalizado"
+        case "cancelado": return "Cancelado"
+        }
+        return estado
+    }
+
+    function colorEstadoEvento(estado) {
+        switch (estado) {
+        case "programado": return info
+        case "en_curso": return exito
+        case "cancelado": return peligro
+        }
+        return textoSuave
+    }
 }

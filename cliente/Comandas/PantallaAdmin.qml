@@ -12,6 +12,8 @@ Item {
     signal salir()
 
     readonly property bool esAdmin: Api.esAdministrador
+    // La sección abierta (la usa el recorrido de capturas, Capturas.qml)
+    readonly property Item seccion: interna.currentItem
 
     // Botón Atrás de Android; regresa false si ya no hay a dónde retroceder
     function atras() {
@@ -26,12 +28,10 @@ Item {
     }
 
     function abrirSeccion(clave) {
-        if (clave === "caja")
-            interna.push(cCaja)
-        else if (clave === "usuarios")
-            interna.push(cUsuarios)
-        else if (clave === "ingredientes")
-            interna.push(cIngredientes)
+        const secciones = { caja: cCaja, eventos: cEventos, productos: cProductos, paquetes: cPaquetes,
+                            ingredientes: cIngredientes, usuarios: cUsuarios, bitacora: cBitacora }
+        if (secciones[clave])
+            interna.push(secciones[clave])
         else
             interna.push(cPendiente, { clave: clave })
     }
@@ -63,8 +63,16 @@ Item {
     Component {
         id: cInicio
 
-        Item {
+        // Con todas las secciones el menú no cabe en pantallas chicas: se desplaza
+        Flickable {
+            id: menu
+            contentWidth: width
+            contentHeight: columnaMenu.implicitHeight + 80
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: ScrollBar {}
+
             ColumnLayout {
+                id: columnaMenu
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
                 anchors.topMargin: 40
@@ -72,10 +80,12 @@ Item {
                 spacing: Tema.margen
 
                 Label {
+                    Layout.fillWidth: true
                     text: "Menú de administración"
                     color: Tema.texto
-                    font.pixelSize: 28
+                    font.pixelSize: parent.width < 480 ? 22 : 28
                     font.bold: true
+                    wrapMode: Text.WordWrap
                 }
                 Label {
                     text: "Elige una sección."
@@ -93,14 +103,18 @@ Item {
                         model: [
                             { clave: "caja", titulo: "Caja", lista: true,
                               descripcion: "Cobrar y cerrar cuentas, y cancelar cuentas y comandas." },
-                            { clave: "usuarios", titulo: "Usuarios", lista: true,
-                              descripcion: "Altas, edición y bajas de usuarios, con su rol y los datos de su puesto." },
-                            { clave: "productos", titulo: "Productos", lista: false,
-                              descripcion: "Catálogo con descripción, categoría, precio, variantes y receta." },
+                            { clave: "eventos", titulo: "Eventos", lista: true,
+                              descripcion: "Calendario, alta con repetición, mesas, paquetes, anticipos, y empezar o terminar el evento." },
+                            { clave: "productos", titulo: "Productos", lista: true,
+                              descripcion: "El menú con descripción, categoría, precio, variantes y receta." },
+                            { clave: "paquetes", titulo: "Paquetes", lista: true,
+                              descripcion: "Lo que se vende por evento: título, descripción, monto y productos incluidos." },
                             { clave: "ingredientes", titulo: "Ingredientes", lista: true,
                               descripcion: "Existencias de cada ingrediente y ajustes de stock." },
-                            { clave: "logs", titulo: "Ver logs", lista: false,
-                              descripcion: "Registros de autenticación y de cocina." }
+                            { clave: "usuarios", titulo: "Usuarios", lista: true,
+                              descripcion: "Altas, edición y bajas de usuarios, con su rol y los datos de su puesto." },
+                            { clave: "bitacora", titulo: "Logs", lista: true,
+                              descripcion: "Registro de actividad del servidor: sesiones, cambios y operaciones rechazadas." }
                         ]
 
                         delegate: Rectangle {
@@ -165,6 +179,42 @@ Item {
         id: cCaja
         PantallaCaja {
             puedeVolver: pantalla.esAdmin
+            onVolver: interna.pop()
+        }
+    }
+
+    Component {
+        id: cEventos
+        AdminEventos {
+            onVolver: interna.pop()
+            onAbrirEvento: (evento, fecha) => interna.push(cEditorEvento, { evento: evento, fechaInicial: fecha })
+        }
+    }
+
+    Component {
+        id: cEditorEvento
+        EditorEvento {
+            onVolver: interna.pop()
+        }
+    }
+
+    Component {
+        id: cProductos
+        AdminProductos {
+            onVolver: interna.pop()
+        }
+    }
+
+    Component {
+        id: cPaquetes
+        AdminPaquetes {
+            onVolver: interna.pop()
+        }
+    }
+
+    Component {
+        id: cBitacora
+        AdminBitacora {
             onVolver: interna.pop()
         }
     }

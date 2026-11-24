@@ -29,6 +29,8 @@ QtObject {
     signal cuentasCambiaron()
     signal inventarioCambio()
     signal usuariosCambiaron()
+    signal catalogoCambio()       // productos y paquetes
+    signal eventosCambiaron()     // eventos, sus mesas, paquetes y anticipos
     // datos: { id_mesero, numero_mesa, cuenta, productos: ["1× Margarita", ...] }
     signal ordenLista(var datos)
     // Se cayó la conexión con la sesión abierta: el servidor la olvidó
@@ -38,7 +40,7 @@ QtObject {
     // local se pasa al abrir la app: cliente_comandas --servidor ws://192.168.1.99:9000
     property string servidor: _servidorInicial()
     // En el navegador corre la demo pública, con las cuentas de prueba
-    readonly property bool modoDemo: Qt.platform.os === "wasm"
+    readonly property bool modoDemo: Qt.platform.os === "wasm" || Qt.application.arguments.indexOf("--demo") >= 0
     readonly property bool conectado: _socket.status === WebSocket.Open
     readonly property string contrasenaDemo: "Demo_123."
 
@@ -60,14 +62,14 @@ QtObject {
         url: api.servidor
         active: true
         onTextMessageReceived: (texto) => api._recibir(texto)
-        onStatusChanged: {
-            if (status === WebSocket.Open) {
+        onStatusChanged: (estado) => {
+            if (estado === WebSocket.Open) {
                 api._reconexion.stop()
                 const cola = api._cola
                 api._cola = []
                 for (const texto of cola)
                     sendTextMessage(texto)
-            } else if (status === WebSocket.Closed || status === WebSocket.Error) {
+            } else if (estado === WebSocket.Closed || estado === WebSocket.Error) {
                 api._alPerderConexion()
             }
         }
@@ -178,6 +180,8 @@ QtObject {
         case "cuentas": cuentasCambiaron(); break
         case "inventario": inventarioCambio(); break
         case "usuarios": usuariosCambiaron(); break
+        case "catalogo": catalogoCambio(); break
+        case "eventos": eventosCambiaron(); break
         case "orden_lista": ordenLista(datos); break
         }
     }
@@ -267,12 +271,13 @@ QtObject {
                 grupos[clave].comandas.push({
                     id_comanda: c.id_comanda, id_producto: c.id_producto, producto: c.producto,
                     categoria: c.categoria, estacion: c.estacion, estado: c.estado,
-                    detalles: c.detalles, precio_cobrado: c.precio_cobrado
+                    detalles: c.detalles, precio_cobrado: c.precio_cobrado, tipo_cobro: c.tipo_cobro
                 })
             }
             for (const r of rondas) {
                 r.lineas = api._agruparLineas(r.comandas)
-                r.total = r.comandas.filter(c => c.estado !== "cancelada").reduce((s, c) => s + c.precio_cobrado, 0)
+                r.total = r.comandas.filter(c => c.estado !== "cancelada" && c.tipo_cobro !== "anfitrion")
+                                    .reduce((s, c) => s + c.precio_cobrado, 0)
             }
             rondas.sort((a, b) => a.fecha_hora - b.fecha_hora)
             return { datos: rondas, mensaje: "" }
@@ -286,7 +291,7 @@ QtObject {
         })
     }
 
-    // Solo un administrador. Una cancelada ya no cambia; no se toca una cuenta
+    // Cajero o administrador. Una cancelada ya no cambia; no se toca una cuenta
     // cerrada ni se deja saldo a favor.
     function cancelarComandas(ids, cb) {
         _pedir("OP_ELIMINAR_PEDIDO", { ids: ids }, cb, function (d) {
@@ -348,8 +353,10 @@ QtObject {
 
     // Todas las cuentas del evento con su total, lo pagado y el saldo (v_cuenta).
     // Llevan los mismos campos que una ronda para poder agruparlas igual.
-    function listarCuentasCaja(cb) {
-        _pedir("OP_LISTAR_CUENTAS_CAJA", null, cb, function (lista) {
+    // numeroEvento es opcional: sin él, las del evento en curso. Las de otro
+    // evento (uno pasado) solo las puede consultar el administrador.
+    function listarCuentasCaja(cb, numeroEvento) {
+        _pedir("OP_LISTAR_CUENTAS_CAJA", { numero_evento: numeroEvento || null }, cb, function (lista) {
             for (const c of lista) {
                 c.total = Number(c.total)
                 c.pagado = Number(c.pagado)
@@ -359,14 +366,21 @@ QtObject {
         })
     }
 
-    function detalleCuenta(secuencial, cb) {
-        _pedir("OP_DETALLE_CUENTA", { secuencial: secuencial }, cb, function (d) {
+    function detalleCuenta(secuencial, cb, numeroEvento) {
+        _pedir("OP_DETALLE_CUENTA", { secuencial: secuencial, numero_evento: numeroEvento || null }, cb, function (d) {
             const lineas = []
+            // tipo_cobro: normal, paquete (incluida, 0) o anfitrion (la paga el anfitrión).
+            // de_otra_cuenta: en la cuenta del anfitrión, de qué cuenta vino el cargo.
             for (const x of d.comandas) {
                 const precio = Number(x.precio)
-                let l = lineas.find(y => y.id_producto === x.id_producto && y.estado === x.estado && y.precio === precio)
+                const origen = x.de_otra_cuenta || ""
+                let l = lineas.find(y => y.id_producto === x.id_producto && y.estado === x.estado && y.precio === precio
+                                         && y.tipo_cobro === x.tipo_cobro && y.de_otra_cuenta === origen)
                 if (!l) {
                     l = { id_producto: x.id_producto, producto: x.producto, estado: x.estado, precio: precio,
+                          tipo_cobro: x.tipo_cobro, de_otra_cuenta: origen,
+                          // Lo que suma a esta cuenta: no lo que se cargó al anfitrión desde aquí
+                          cuenta_aqui: x.tipo_cobro !== "anfitrion" || origen !== "" || d.es_anfitrion,
                           cantidad: 0, ids: [] }
                     lineas.push(l)
                 }
@@ -377,7 +391,8 @@ QtObject {
                 p.monto = Number(p.monto)
                 p.monto_propina = p.monto_propina === null ? null : Number(p.monto_propina)
             }
-            return { datos: { secuencial: d.secuencial, lineas: lineas, pagos: d.pagos }, mensaje: "" }
+            return { datos: { secuencial: d.secuencial, es_anfitrion: d.es_anfitrion, lineas: lineas, pagos: d.pagos },
+                     mensaje: "" }
         })
     }
 
@@ -451,6 +466,166 @@ QtObject {
         _pedir("OP_ELIMINAR_USUARIO", { id_usuario: idUsuario }, cb, function (d) {
             return { datos: null, mensaje: "Se eliminó a " + d.nombre }
         })
+    }
+
+    // ============================ Productos ============================
+    // La lista es listarProductos: cada producto ya trae su receta con
+    // cantidades y motivo_sin_baja ('' si se puede eliminar).
+
+    // datos: { id_producto (si se edita), nombre, descripcion, categoria, precio,
+    //          id_producto_principal (null si no es variante),
+    //          receta: [{ id_ingrediente, cantidad }] }
+    function guardarProducto(datos, cb) {
+        const op = datos.id_producto ? "OP_MODIFICAR_PRODUCTO" : "OP_CREAR_PRODUCTO"
+        const enviar = {
+            nombre: String(datos.nombre || ""), descripcion: String(datos.descripcion || ""),
+            categoria: datos.categoria, precio: _centavos(datos.precio) / 100,
+            id_producto_principal: datos.id_producto_principal || null,
+            receta: (datos.receta || []).map(r => ({ id_ingrediente: r.id_ingrediente, cantidad: Number(r.cantidad) }))
+        }
+        if (datos.id_producto)
+            enviar.id_producto = datos.id_producto
+        _pedir(op, enviar, cb, function (d) {
+            return { datos: d, mensaje: datos.id_producto ? "Producto actualizado" : "Se agregó «" + d.nombre + "»" }
+        })
+    }
+
+    function eliminarProducto(idProducto, cb) {
+        _pedir("OP_ELIMINAR_PRODUCTO", { id_producto: idProducto }, cb, function (d) {
+            return { datos: null, mensaje: "Se eliminó «" + d.nombre + "»" }
+        })
+    }
+
+    // ============================ Paquetes ============================
+    // La base guarda título y descripción juntos en "detalles", como
+    // "Título: descripción"; aquí se separan y se vuelven a juntar.
+
+    function separarDetalles(detalles) {
+        const texto = String(detalles || "")
+        const i = texto.indexOf(": ")
+        return i < 0 ? { titulo: texto, descripcion: "" }
+                     : { titulo: texto.slice(0, i), descripcion: texto.slice(i + 2) }
+    }
+
+    function juntarDetalles(titulo, descripcion) {
+        const t = String(titulo || "").trim()
+        const d = String(descripcion || "").trim()
+        return d === "" ? t : t + ": " + d
+    }
+
+    // [{ numero_paquete, titulo, descripcion, monto, productos: [{ id_producto, nombre, categoria }], eventos }]
+    function listarPaquetes(cb) {
+        _pedir("OP_LISTAR_PAQUETES", null, cb, function (lista) {
+            for (const p of lista) {
+                const partes = api.separarDetalles(p.detalles)
+                p.titulo = partes.titulo
+                p.descripcion = partes.descripcion
+                p.monto = Number(p.monto)
+            }
+            return { datos: lista, mensaje: "" }
+        })
+    }
+
+    // datos: { numero_paquete (si se edita), titulo, descripcion, monto, productos: [ids] }
+    function guardarPaquete(datos, cb) {
+        const op = datos.numero_paquete ? "OP_MODIFICAR_PAQUETE" : "OP_CREAR_PAQUETE"
+        const enviar = { detalles: juntarDetalles(datos.titulo, datos.descripcion),
+                         monto: _centavos(datos.monto) / 100, productos: datos.productos || [] }
+        if (datos.numero_paquete)
+            enviar.numero_paquete = datos.numero_paquete
+        _pedir(op, enviar, cb, function (d) {
+            return { datos: d, mensaje: datos.numero_paquete ? "Paquete actualizado" : "Se creó el paquete" }
+        })
+    }
+
+    function eliminarPaquete(numeroPaquete, cb) {
+        _pedir("OP_ELIMINAR_PAQUETE", { numero_paquete: numeroPaquete }, cb, function (d) {
+            return { datos: null, mensaje: "Se eliminó «" + api.separarDetalles(d.detalles).titulo + "»" }
+        })
+    }
+
+    // ============================= Eventos =============================
+
+    // desde y hasta ("AAAA-MM-DD") son opcionales. Cada evento trae
+    // organizadores, mesas, paquetes (con la cantidad acordada de cada
+    // producto), anticipos y sus totales.
+    function listarEventos(desde, hasta, cb) {
+        _pedir("OP_LISTAR_EVENTOS", { desde: desde || null, hasta: hasta || null }, cb, function (lista) {
+            for (const e of lista) {
+                e.total_anticipos = Number(e.total_anticipos)
+                e.total_paquetes = Number(e.total_paquetes)
+                for (const a of e.anticipos)
+                    a.monto = Number(a.monto)
+                for (const p of e.paquetes) {
+                    p.monto = Number(p.monto)
+                    const partes = api.separarDetalles(p.detalles)
+                    p.titulo = partes.titulo
+                    p.descripcion = partes.descripcion
+                }
+            }
+            return { datos: lista, mensaje: "" }
+        })
+    }
+
+    // datos: { numero_evento (si se edita), fecha, tipo_evento, numero_asistentes,
+    //          organizadores: [...], mesas: [{ numero_mesa, id_mesero }],
+    //          paquetes: [{ numero_paquete, productos: [{ id_producto, cantidad, modo_cobro }] }],
+    //          secuencial_anfitrion (solo al editar), repetir (solo al crear): { cada: "dias" | "semanas" | "meses", intervalo, veces } }
+    function guardarEvento(datos, cb) {
+        const enviar = {
+            fecha: String(datos.fecha || "").trim(), tipo_evento: String(datos.tipo_evento || ""),
+            numero_asistentes: Number(datos.numero_asistentes),
+            organizadores: datos.organizadores || [],
+            mesas: (datos.mesas || []).map(m => ({ numero_mesa: Number(m.numero_mesa), id_mesero: m.id_mesero })),
+            paquetes: (datos.paquetes || []).map(p => ({
+                numero_paquete: p.numero_paquete,
+                productos: p.productos.map(x => ({ id_producto: x.id_producto, cantidad: Number(x.cantidad),
+                                                   modo_cobro: x.modo_cobro || "cobrar" }))
+            }))
+        }
+        if (datos.numero_evento)
+            enviar.secuencial_anfitrion = datos.secuencial_anfitrion || null
+        if (datos.numero_evento) {
+            enviar.numero_evento = datos.numero_evento
+            _pedir("OP_MODIFICAR_EVENTO", enviar, cb, function () {
+                return { datos: null, mensaje: "Evento actualizado" }
+            })
+            return
+        }
+        if (datos.repetir)
+            enviar.repetir = datos.repetir
+        _pedir("OP_CREAR_EVENTO", enviar, cb, function (d) {
+            return { datos: d, mensaje: d.creados === 1 ? "Se creó el evento" : "Se crearon " + d.creados + " eventos" }
+        })
+    }
+
+    // estado: "en_curso" (iniciar), "finalizado" o "cancelado"
+    function cambiarEstadoEvento(numeroEvento, estado, cb) {
+        const textos = { en_curso: "Evento iniciado", finalizado: "Evento finalizado", cancelado: "Evento cancelado" }
+        _pedir("OP_CAMBIAR_ESTADO_EVENTO", { numero_evento: numeroEvento, estado: estado }, cb, function () {
+            return { datos: null, mensaje: textos[estado] || "" }
+        })
+    }
+
+    // fecha opcional ("AAAA-MM-DD"); si no va, es hoy
+    function registrarAnticipo(numeroEvento, monto, fecha, cb) {
+        const centavos = _centavos(monto)
+        if (isNaN(centavos) || centavos <= 0) {
+            _entregarDespues(cb, _falla("VALIDACION_FALLIDA", "El monto del anticipo debe ser mayor que 0"))
+            return
+        }
+        _pedir("OP_REGISTRAR_ANTICIPO", { numero_evento: numeroEvento, monto: centavos / 100, fecha: fecha || null }, cb,
+               function () {
+                   return { datos: null, mensaje: "Anticipo registrado · " + Tema.dinero(centavos / 100) }
+               })
+    }
+
+    // ============================ Bitácora ============================
+
+    // Lo que ha pasado en el servidor, de lo más reciente a lo más viejo:
+    // [{ fecha: "2026-11-24 09:43:28", texto }]
+    function listarBitacora(cb) {
+        _pedir("OP_LISTAR_LOGS", null, cb)
     }
 
     // ========================== Uso interno ==========================

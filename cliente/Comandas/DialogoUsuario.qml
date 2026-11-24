@@ -121,7 +121,7 @@ Dialog {
                 id: campoUsuario
                 Layout.fillWidth: true
                 maximumLength: 40
-                placeholderText: "p. ej. lmendez"
+                placeholderText: "p. ej. meseroDemo3"
                 inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhPreferLowercase
             }
 
