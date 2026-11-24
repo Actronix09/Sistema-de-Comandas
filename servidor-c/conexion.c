@@ -105,7 +105,7 @@ static void al_estar_listo(struct mg_connection *conexion, void *datos_registro)
     snprintf(cliente->ip, sizeof cliente->ip, "%s", mg_get_request_info(conexion)->remote_addr);
     mg_set_user_connection_data(conexion, cliente);
     avisos_agregar(cliente);
-    registrar("Cliente conectado: %s", cliente->ip);
+    registrar_solo_log("Cliente conectado: %s", cliente->ip);
 }
 
 // Llega una trama. Regresar 1 deja la conexión abierta y 0 la cierra.
@@ -168,7 +168,7 @@ static void al_cerrar(const struct mg_connection *conexion, void *datos_registro
     if (cliente == NULL)
         return;
 
-    registrar("Cliente desconectado: %s", cliente->ip);
+    registrar_solo_log("Cliente desconectado: %s", cliente->ip);
     // Después de esto ningún aviso la toca, y ya se puede liberar
     avisos_quitar(cliente);
     free(cliente->mensaje);
