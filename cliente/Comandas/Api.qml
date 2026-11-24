@@ -62,6 +62,7 @@ QtObject {
         onTextMessageReceived: (texto) => api._recibir(texto)
         onStatusChanged: {
             if (status === WebSocket.Open) {
+                api._reconexion.stop()
                 const cola = api._cola
                 api._cola = []
                 for (const texto of cola)
@@ -72,11 +73,16 @@ QtObject {
         }
     }
 
-    // Reintenta cada 3 s mientras no haya conexión
+    // Reintenta cada 3 s mientras no haya conexión. Para reintentar se apaga y
+    // se prende el socket, y apagarlo vuelve a avisar "cerrado" y a programar
+    // este temporizador: por eso se detiene al conectar y no hace nada si ya
+    // hay conexión. Sin eso, cerraba cada 3 s la conexión que acababa de abrir.
     property Timer _reconexion: Timer {
         interval: 3000
         repeat: false
         onTriggered: {
+            if (api.conectado)
+                return
             api._socket.active = false
             api._socket.active = true
         }
