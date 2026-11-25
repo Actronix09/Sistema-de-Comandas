@@ -261,6 +261,8 @@ Sin sesión solo se puede hacer login y ver el evento en curso; lo demás respon
 | Caja | `OP_LISTAR_CUENTAS_CAJA`, `OP_DETALLE_CUENTA`, `OP_REGISTRAR_PAGO`, `OP_CERRAR_CUENTA`, `OP_ELIMINAR_PEDIDO` (cancela comandas) | Cajero y administrador |
 | Administración | `OP_CANCELAR_CUENTA`, `OP_LISTAR_USUARIOS`, `OP_CREAR_USUARIO`, `OP_MODIFICAR_USUARIO`, `OP_ELIMINAR_USUARIO`, `OP_LISTAR_INGREDIENTES`, `OP_CREAR_INGREDIENTE`, `OP_MODIFICAR_INGREDIENTE`, `OP_AJUSTAR_STOCK`, `OP_ELIMINAR_INGREDIENTE`, `OP_REINICIAR_STOCK`, `OP_CREAR_PRODUCTO`, `OP_MODIFICAR_PRODUCTO`, `OP_ELIMINAR_PRODUCTO`, `OP_LISTAR_PAQUETES`, `OP_CREAR_PAQUETE`, `OP_MODIFICAR_PAQUETE`, `OP_ELIMINAR_PAQUETE`, `OP_LISTAR_EVENTOS`, `OP_CREAR_EVENTO`, `OP_MODIFICAR_EVENTO`, `OP_CAMBIAR_ESTADO_EVENTO`, `OP_REGISTRAR_ANTICIPO`, `OP_LISTAR_LOGS` | Administrador (la lista de ingredientes la ve cualquiera) |
 
+Los demás identificadores de `protocolo.h` (`OP_RECUPERAR_PASS`, `OP_VERIFICAR_USUARIO`, `OP_OBTENER_USUARIO`, `OP_OBTENER_PRODUCTO`, `OP_OBTENER_INGREDIENTE`, `OP_OBTENER_PEDIDO`, `OP_VERIFICAR_DISPONIBILIDAD_PRODUCTO` y `OP_VER_LOG`) están reservados y responden `NO_IMPLEMENTADA`.
+
 Las reglas del negocio las revisa la base (restricciones y disparadores). El servidor revisa la forma de los datos y quién llama, y traduce los errores de la base a mensajes en español. Los logs son las últimas 500 líneas de actividad en memoria; el log completo queda en el del contenedor.
 
 Las pruebas del servidor corren contra una base cargada:
