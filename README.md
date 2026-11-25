@@ -54,7 +54,7 @@ Sistema para tomar, preparar y cobrar las comandas de un salón de eventos. Es l
 | **Contenedores** | Base, servidor, cliente, cliente web y Android | Arranque automático en la PC de caja |
 | **Plataformas** | Linux, navegador y APK de Android | Instalador de Windows; WebSockets en el APK |
 
-La lista detallada de pendientes, con responsables, está en `PENDIENTES.md`, en el repositorio de la base de datos.
+Lo que falta para la entrega final está en [`pendientes.md`](https://github.com/Actronix09/BD-Sistema-de-Comandas/blob/main/pendientes.md), en el repositorio de la base de datos. Los problemas que siguen abiertos en la aplicación están en [Problemas conocidos](#problemas-conocidos).
 
 ### Qué puede hacer cada rol en el cliente
 
@@ -285,11 +285,11 @@ Sus pruebas se corren desde ese repositorio (39 rechazos y 16 casos válidos):
 make -C sql pruebas
 ```
 
-Todavía usan el contenedor `practica1-postgres`, en Docker. Pasarlas a Podman es el punto 5.5 de `PENDIENTES.md`.
+Todavía usan el contenedor `practica1-postgres`, en Docker (`MOTOR=docker` en `sql/Makefile`). Falta probarlas con `make -C sql pruebas MOTOR=podman`.
 
 ## Problemas conocidos
 
-- **En la red local las contraseñas viajan sin cifrar.** El servidor usa `ws://`; la demo pública sí va cifrada (`wss://`, lo pone Tailscale). Es el punto 6.11 de `PENDIENTES.md`.
+- **En la red local las contraseñas viajan sin cifrar.** El servidor usa `ws://`; la demo pública sí va cifrada (`wss://`, lo pone Tailscale). Falta pasar el servidor local a `wss://` con un certificado que acepten los clientes.
 - **El APK de Android todavía no trae WebSockets.** Su compilación necesita el módulo `qtwebsockets`.
 - **La dirección del servidor no se elige desde la app.** En escritorio se pasa con `--servidor ws://IP:9000`; en el navegador, con `?servidor=`.
 
